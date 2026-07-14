@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IronLog — Protótipo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#080807" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="IronLog" />
+<meta name="mobile-web-app-capable" content="yes" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+  :root{
+    --bg:#080807; --bgElevated:#161513;
+    --card:#131210; --cardAlt:#1E1C18;
+    --border:rgba(240,194,75,.35);
+    --accent:#F0C24B; --accentSoft:rgba(240,194,75,.14);
+    --active:#22C55E; --activeSoft:rgba(34,197,94,.16);
+    --teal:#F0C24B; --tealSoft:rgba(240,194,75,.10);
+    --danger:#FF6B5E;
+    --text:#F5F1E8; --textDim:rgba(245,241,232,.65); --textFaint:rgba(245,241,232,.42);
+    --btnBg:var(--accent); --btnText:#161208;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;}
+  .display{font-family:'Barlow Condensed',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{cursor:pointer;font-family:inherit;}
+  input,select{font-family:inherit;}
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  #app{display:flex;min-height:100vh;}
+  #sidebar{width:210px;padding:20px;flex-direction:column;gap:4px;background:var(--bgElevated);border-right:1px solid var(--border);color:var(--text);position:relative;transition:width .22s ease, padding .22s ease;overflow:hidden;}
+  #sidebar.collapsed{width:64px;padding:20px 10px;}
+  #sidebar.collapsed .label{display:none;}
+  #sidebar.collapsed .navbtn{justify-content:center;}
+  #sidebar.collapsed .logo{justify-content:center;}
+  #sidebar-handle{position:absolute;top:22px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#161208;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;font-weight:700;z-index:5;padding:0;}
+  #sidebar .logo{font-size:24px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:26px;color:var(--accent);}
+  .navbtn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:transparent;border:none;color:var(--textDim);font-weight:600;font-size:14px;text-align:left;width:100%;}
+  .navbtn.active{background:var(--activeSoft);color:var(--active);}
+  #content{flex:1;padding:24px 24px 90px;max-width:920px;margin:0 auto;width:100%;}
+  #bottomnav{position:fixed;bottom:0;left:0;right:0;background:#1C1A16;border-top:1px solid var(--border);display:none;flex-direction:column;padding:8px 10px;z-index:40;box-shadow:0 -4px 16px rgba(0,0,0,.4);gap:2px;}
+  .bnbtn{background:none;border:none;display:flex;flex-direction:row;align-items:center;gap:12px;color:rgba(245,241,232,.65);font-size:15px;font-weight:600;padding:11px 10px;border-radius:10px;text-align:left;width:100%;}
+  .bnbtn span:first-child{font-size:19px;width:22px;text-align:center;}
+  .bnbtn.active{color:var(--active);background:var(--activeSoft);}
+  @media (max-width:780px){
+    #sidebar{display:none !important;}
+    #bottomnav{display:flex !important;}
+  }
+
+  @media (max-width:780px){
+    #content{padding:16px 14px 300px;}
+    .btn-primary{padding:11px 16px;}
+    .filterbtn{padding:8px 14px;}
+    h1.pagetitle{font-size:24px;}
+    .session-sticky button{font-size:12.5px;padding:9px 11px;}
+    #resume-session-btn{bottom:300px;font-size:12px;padding:9px 14px;max-width:92vw;}
+  }
+
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px;
+    color:var(--text);
+  }
+  .cardalt{background:var(--cardAlt);}
+
+  .pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;display:inline-block;background:var(--bgElevated);color:var(--textDim);}
+  .pill.accent{background:var(--accentSoft);color:var(--accent);}
+  .pill.teal{background:var(--tealSoft);color:var(--teal);}
+  .btn-primary{background:var(--btnBg);color:var(--btnText);border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:14px;}
+  .btn-ghost{background:var(--bgElevated);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);min-width:38px;min-height:38px;display:inline-flex;align-items:center;justify-content:center;}
+  .grid-stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .stat{flex:1;min-width:130px;}
+  .stat .lbl{display:flex;align-items:center;gap:8px;color:var(--textDim);font-size:12px;font-weight:600;margin-bottom:10px;}
+  .stat .val{font-size:30px;font-weight:700;line-height:1;}
+  .stat .sub{font-size:12px;color:var(--textFaint);margin-top:4px;}
+  .exgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+  .excard{cursor:pointer;}
+  .excard .thumb{height:90px;border-radius:10px;margin-bottom:10px;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;font-size:28px;}
+  .filterrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;}
+  .filterbtn{background:var(--accentSoft);color:var(--accent);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;white-space:nowrap;}
+  .filterbtn.active{background:var(--active);color:#0B2013;border-color:var(--active);}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(20,14,8,.5);display:flex;align-items:flex-end;justify-content:center;z-index:50;}
+  .modal-sheet{background:var(--bg);border:1px solid var(--border);border-top-left-radius:20px;border-top-right-radius:20px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;padding:20px;color:var(--text);}
+  .field-lbl{font-size:12px;color:var(--textDim);margin-bottom:5px;font-weight:600;}
+  .field-in{width:100%;background:var(--bgElevated);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;}
+  .row{display:flex;gap:10px;}
+  .setrow{display:flex;align-items:center;gap:8px;background:var(--bgElevated);border-radius:8px;padding:6px 8px;margin-bottom:6px;transition:background .2s;}
+  .setrow.done{background:var(--active);}
+  .setrow.done span{color:#fff;}
+  .setrow.done .small-in{color:#fff;background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+  .checkbox{width:26px;height:26px;border-radius:7px;border:1.5px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--btnText);font-weight:700;}
+  .checkbox.done{background:var(--active);border-color:var(--active);color:#fff;}
+  #rest-banner{margin-bottom:16px;}
+  .rest-card{border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#fff;}
+  .rest-card.counting{background:var(--card);}
+  .rest-card.finished{background:var(--active);color:#0B2013;animation:pulseGreen 1s ease-in-out 2;}
+  @keyframes pulseGreen{0%,100%{opacity:1;}50%{opacity:.6;}}
+  .demo-anim{transition:transform 1.4s ease-in-out;}
+  .demo-anim.playing{animation:liftmotion 1.3s ease-in-out infinite;}
+  @keyframes liftmotion{0%,100%{transform:translateY(0);}50%{transform:translateY(-16px);}}
+  .small-in{width:50px;background:var(--bgElevated);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:var(--text);font-size:13px;}
+  h1.pagetitle{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;margin:0 0 14px;color:var(--text);}
+  .caldot{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12px;font-weight:600;}
+  .session-sticky{position:sticky;top:0;background:var(--bg);z-index:30;padding:14px 0 10px;border-bottom:1px solid var(--border);margin:0 0 -1px;}
+  #resume-session-btn{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:var(--accent);color:#161208;border:none;border-radius:999px;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:45;cursor:pointer;}
+  @media (min-width:781px){ #resume-session-btn{bottom:24px;} }
+  .combo-sub{background:var(--cardAlt);border-radius:10px;padding:12px;}
+  .combo-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .combo-header .stack-ico{font-size:16px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const EXERCISES = [
+  {id:"supino-reto",nome:"Supino reto com barra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg",grupo:"Peito",principais:["Peitoral maior"],secundarios:["Tríceps","Deltoide anterior"],equipamento:"Barra + banco reto",nivel:2,
+   instrucoes:["Deite no banco com os pés firmes no chão e escápulas retraídas.","Pegada pouco mais larga que os ombros, barra alinhada com o peito.","Desça a barra de forma controlada até tocar levemente o peito.","Empurre a barra para cima estendendo os cotovelos sem travá-los.","Inspire na descida e expire na subida."],
+   erros:["Arquear excessivamente a lombar","Deixar os cotovelos abrirem 90° em relação ao tronco","Quicar a barra no peito"],
+   dica:"Mantenha os pulsos alinhados com o antebraço e os pés bem apoiados para gerar estabilidade."},
+  {id:"supino-inclinado",nome:"Supino inclinado com halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Bench_With_Palms_Facing_In/0.jpg",grupo:"Peito",principais:["Peitoral maior (porção clavicular)"],secundarios:["Deltoide anterior","Tríceps"],equipamento:"Halteres + banco inclinado (30-45°)",nivel:2,
+   instrucoes:["Ajuste o banco entre 30° e 45°.","Posicione os halteres na altura do peito com os cotovelos abaixo dos punhos.","Empurre os halteres para cima sem travar os cotovelos.","Desça controladamente até sentir alongamento no peito."],
+   erros:["Inclinação acima de 45° (vira ombro)","Amplitude incompleta","Descer rápido demais"],
+   dica:"Gire levemente os halteres no topo do movimento para maior contração do peitoral superior."},
+  {id:"crucifixo",nome:"Crucifixo reto com halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/0.jpg",grupo:"Peito",principais:["Peitoral maior"],secundarios:["Deltoide anterior"],equipamento:"Halteres + banco reto",nivel:2,
+   instrucoes:["Deite no banco segurando os halteres acima do peito, cotovelos levemente flexionados.","Abra os braços em arco até a altura dos ombros.","Retorne pelo mesmo trajeto contraindo o peitoral."],
+   erros:["Flexionar demais o cotovelo (vira supino)","Descer além da linha dos ombros sobrecarregando o ombro"],
+   dica:"Imagine abraçar um tronco de árvore para manter o arco correto."},
+  {id:"triceps-testa",nome:"Tríceps testa com barra W",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Barra W + banco reto",nivel:2,
+   instrucoes:["Deite no banco segurando a barra com os braços estendidos acima do peito.","Flexione os cotovelos levando a barra em direção à testa.","Estenda os cotovelos retornando à posição inicial."],
+   erros:["Abrir os cotovelos durante o movimento","Usar impulso do ombro"],
+   dica:"Mantenha os cotovelos fixos, apontando para o teto, durante toda a execução."},
+  {id:"triceps-corda",nome:"Tríceps corda na polia",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_Rope_Attachment/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Polia alta + corda",nivel:1,
+   instrucoes:["Segure a corda com pegada neutra, cotovelos junto ao corpo.","Estenda os cotovelos empurrando a corda para baixo.","Abra levemente as mãos ao final do movimento.","Retorne controladamente."],
+   erros:["Afastar os cotovelos do tronco","Inclinar o tronco para gerar impulso"],
+   dica:"Fixe os cotovelos como se estivessem presos ao corpo do início ao fim."},
+  {id:"puxada-frente",nome:"Puxada frente na polia",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg",grupo:"Costas",principais:["Latíssimo do dorso"],secundarios:["Bíceps","Romboides"],equipamento:"Polia alta + barra",nivel:1,
+   instrucoes:["Sente-se com as coxas presas sob o apoio, pegada aberta.","Puxe a barra em direção à parte superior do peito.","Retorne controladamente até a extensão quase completa dos braços."],
+   erros:["Puxar atrás da nuca","Usar impulso do tronco","Amplitude incompleta"],
+   dica:"Pense em levar os cotovelos para baixo e para trás, não apenas puxar com os braços."},
+  {id:"remada-curvada",nome:"Remada curvada com barra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg",grupo:"Costas",principais:["Latíssimo do dorso","Romboides"],secundarios:["Bíceps","Trapézio"],equipamento:"Barra livre",nivel:3,
+   instrucoes:["Incline o tronco a aproximadamente 45°, joelhos levemente flexionados.","Puxe a barra em direção ao abdômen mantendo a coluna neutra.","Desça controladamente sem perder a postura."],
+   erros:["Arredondar a coluna","Usar embalo do quadril","Puxar até o peito"],
+   dica:"Mantenha o olhar para frente e o core contraído durante toda a série."},
+  {id:"rosca-direta",nome:"Rosca direta com barra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg",grupo:"Bíceps",principais:["Bíceps braquial"],secundarios:["Antebraço"],equipamento:"Barra reta ou W",nivel:1,
+   instrucoes:["Fique em pé com a barra na altura das coxas, pegada supinada.","Flexione os cotovelos elevando a barra até a altura dos ombros.","Desça controladamente até a extensão completa."],
+   erros:["Balançar o tronco para impulsionar","Mover os cotovelos para frente"],
+   dica:"Mantenha os cotovelos colados ao tronco durante todo o movimento."},
+  {id:"agachamento-livre",nome:"Agachamento livre com barra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:["Isquiotibiais","Core"],equipamento:"Barra + rack",nivel:3,
+   instrucoes:["Posicione a barra sobre o trapézio, pés na largura dos ombros.","Desça flexionando quadril e joelhos, mantendo o peito erguido.","Desça até pelo menos 90° de flexão do joelho.","Suba estendendo quadril e joelhos simultaneamente."],
+   erros:["Joelhos colapsando para dentro","Calcanhar saindo do chão","Perder a curvatura neutra da lombar"],
+   dica:"Empurre o chão com os pés como se fosse separá-lo ao meio."},
+  {id:"leg-press",nome:"Leg press 45°",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:["Isquiotibiais"],equipamento:"Máquina leg press",nivel:1,
+   instrucoes:["Posicione os pés na plataforma na largura dos ombros.","Destrave o carro e desça controladamente flexionando os joelhos.","Empurre a plataforma sem travar totalmente os joelhos no topo."],
+   erros:["Descer demais tirando o quadril do encosto","Travar os joelhos com carga alta"],
+   dica:"Mantenha a lombar sempre apoiada no encosto do banco."},
+  {id:"cadeira-extensora",nome:"Cadeira extensora",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg",grupo:"Pernas",principais:["Quadríceps"],secundarios:[],equipamento:"Máquina extensora",nivel:1,
+   instrucoes:["Ajuste o encosto para que o joelho fique alinhado ao eixo da máquina.","Estenda os joelhos elevando o peso até a extensão quase completa.","Desça controladamente sem soltar o peso."],
+   erros:["Usar impulso do tronco","Descer o peso rápido demais"],
+   dica:"Faça uma pausa de 1 segundo no topo do movimento para maior ativação."},
+  {id:"desenvolvimento-militar",nome:"Desenvolvimento militar com barra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg",grupo:"Ombros",principais:["Deltoide anterior","Deltoide medial"],secundarios:["Tríceps","Trapézio"],equipamento:"Barra livre",nivel:3,
+   instrucoes:["Em pé, barra apoiada na altura da clavícula, pegada pouco mais larga que os ombros.","Empurre a barra para cima até a extensão completa dos braços.","Desça controladamente até a posição inicial."],
+   erros:["Arquear excessivamente a lombar","Empurrar a barra para frente em vez de para cima"],
+   dica:"Contraia o core e os glúteos para proteger a lombar durante o movimento."},
+  {id:"elevacao-lateral",nome:"Elevação lateral com halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg",grupo:"Ombros",principais:["Deltoide medial"],secundarios:[],equipamento:"Halteres",nivel:1,
+   instrucoes:["Em pé, halteres ao lado do corpo, cotovelos levemente flexionados.","Eleve os braços lateralmente até a altura dos ombros.","Desça controladamente."],
+   erros:["Usar impulso do tronco","Elevar acima da linha dos ombros","Cotovelos totalmente estendidos"],
+   dica:"Imagine estar derramando água de uma jarra ao final do movimento."},
+  {id:"panturrilha-em-pe",nome:"Panturrilha em pé",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",grupo:"Pernas",principais:["Gastrocnêmio"],secundarios:["Sóleo"],equipamento:"Máquina de panturrilha",nivel:1,
+   instrucoes:["Posicione os ombros sob o apoio, ponta dos pés na plataforma.","Desça os calcanhares o máximo possível para alongar.","Suba na ponta dos pés contraindo a panturrilha."],
+   erros:["Amplitude curta","Movimento rápido sem controle"],
+   dica:"Faça uma pausa de 1 a 2 segundos no topo da contração."},
+
+  /* ---- Exercícios da rotina cadastrada (Planilha Novembro 2025) ---- */
+  {id:"mobilidade-toracica-v",nome:"Mobilidade Torácica V",grupo:"Mobilidade",principais:["Coluna torácica"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor para a execução exata.","Priorize movimento controlado, sem forçar a amplitude."],
+   erros:["Fazer o movimento rápido demais","Forçar além do conforto"],
+   dica:"Respire de forma controlada durante todo o movimento."},
+  {id:"remada-baixa-polia-supinada",nome:"Remada Baixa na Polia Baixa (Pegada Supinada)",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg",grupo:"Costas",principais:["Latíssimo do dorso"],secundarios:["Bíceps"],equipamento:"Polia baixa",nivel:2,
+   instrucoes:["Sente-se com os joelhos levemente flexionados, pegada supinada no cabo.","Puxe o cabo em direção ao abdômen mantendo o tronco ereto.","Retorne controladamente sem arredondar a coluna."],
+   erros:["Balançar o tronco para puxar","Encolher os ombros durante a puxada"],
+   dica:"Leve os cotovelos para trás, próximos ao corpo, para ativar bem as costas."},
+  {id:"rosca-direta-21",nome:"Rosca Direta 21 com Barra Reta",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg",grupo:"Bíceps",principais:["Bíceps braquial"],secundarios:["Antebraço"],equipamento:"Barra reta",nivel:2,
+   instrucoes:["Faça 7 repetições na metade inferior do movimento.","Em seguida, 7 repetições na metade superior.","Finalize com 7 repetições na amplitude completa."],
+   erros:["Usar impulso do corpo","Perder a postura ao longo da série"],
+   dica:"O método 21 prioriza controle — use uma carga um pouco menor que o habitual."},
+  {id:"rosca-direta-banco-inclinado",nome:"Rosca Direta com Barra Reta no Banco Inclinado",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Curl/0.jpg",grupo:"Bíceps",principais:["Bíceps braquial"],secundarios:[],equipamento:"Barra reta + banco inclinado",nivel:2,
+   instrucoes:["Sente-se no banco inclinado com os braços estendidos para baixo.","Flexione os cotovelos elevando a barra.","Desça controladamente até a extensão completa."],
+   erros:["Tirar os braços da linha do corpo","Usar impulso do ombro"],
+   dica:"O banco inclinado evita compensações, isolando bem o bíceps."},
+  {id:"rosca-alternada-halteres",nome:"Rosca Alternada com Halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Alternate_Bicep_Curl/0.jpg",grupo:"Bíceps",principais:["Bíceps braquial"],secundarios:["Antebraço"],equipamento:"Halteres",nivel:1,
+   instrucoes:["Em pé, halteres ao lado do corpo, palmas voltadas para dentro.","Flexione um braço por vez, girando o punho até a palma ficar voltada para cima.","Desça controladamente e alterne o lado."],
+   erros:["Balançar o tronco","Mover o cotovelo para frente"],
+   dica:"Mantenha o cotovelo fixo junto ao tronco durante toda a execução."},
+  {id:"elevacao-frontal-halteres",nome:"Elevação Frontal com Halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Dumbbell_Raise/0.jpg",grupo:"Ombros",principais:["Deltoide anterior"],secundarios:[],equipamento:"Halteres",nivel:1,
+   instrucoes:["Em pé, halteres à frente das coxas.","Eleve um ou ambos os braços à frente até a altura dos ombros.","Desça controladamente."],
+   erros:["Usar impulso do tronco","Elevar acima da linha dos ombros"],
+   dica:"Controle bem a descida — é a parte que mais recruta o deltoide anterior."},
+  {id:"desenvolvimento-sentado-halteres",nome:"Desenvolvimento Sentado com Halteres (Pegada Neutra)",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/0.jpg",grupo:"Ombros",principais:["Deltoide anterior","Deltoide medial"],secundarios:["Tríceps"],equipamento:"Halteres + banco",nivel:2,
+   instrucoes:["Sentado, halteres na altura dos ombros com as palmas voltadas uma para a outra.","Empurre os halteres para cima até quase estender os cotovelos.","Desça controladamente."],
+   erros:["Arquear a lombar","Bater os halteres com força no topo"],
+   dica:"A pegada neutra reduz o estresse no ombro em comparação à pegada pronada."},
+  {id:"desenvolvimento-arnold",nome:"Desenvolvimento Arnold Sentado",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/0.jpg",grupo:"Ombros",principais:["Deltoide anterior","Deltoide medial"],secundarios:["Tríceps"],equipamento:"Halteres + banco",nivel:2,
+   instrucoes:["Sentado, halteres à frente dos ombros com palmas voltadas para o corpo.","Ao empurrar para cima, gire os punhos até as palmas ficarem para frente no topo.","Desça revertendo a rotação."],
+   erros:["Rotação muito rápida sem controle","Usar carga excessiva"],
+   dica:"A rotação recruta mais fibras do deltoide ao longo do movimento."},
+  {id:"alongamento-punho-espaldar",nome:"Alongamento de Punho Espaldar",grupo:"Mobilidade",principais:["Antebraço"],secundarios:[],equipamento:"Espaldar",nivel:1,
+   instrucoes:["Apoie a mão no espaldar com os dedos apontando para baixo.","Incline o corpo suavemente para alongar o antebraço.","Segure a posição sem dor."],
+   erros:["Forçar além do limite confortável","Fazer movimentos bruscos"],
+   dica:"O alongamento deve gerar tensão leve, nunca dor."},
+  {id:"alongamento-peitoral-espaldar-2",nome:"Alongamento de Peitoral Espaldar II",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dynamic_Chest_Stretch/0.jpg",grupo:"Mobilidade",principais:["Peitoral maior"],secundarios:[],equipamento:"Espaldar",nivel:1,
+   instrucoes:["Apoie o braço no espaldar na altura do ombro.","Gire o tronco para o lado oposto até sentir o alongamento no peito.","Segure a posição respirando normalmente."],
+   erros:["Girar rápido demais","Prender a respiração"],
+   dica:"Mantenha a postura ereta durante todo o alongamento."},
+  {id:"triceps-coice-unilateral",nome:"Tríceps Coice Unilateral na Polia Baixa",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Tricep_Dumbbell_Kickback/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Polia baixa",nivel:1,
+   instrucoes:["Incline o tronco à frente, cotovelo fixo junto ao corpo.","Estenda o cotovelo levando o cabo para trás.","Retorne controladamente."],
+   erros:["Mover o cotovelo durante a extensão","Usar o tronco para gerar impulso"],
+   dica:"Mantenha o braço paralelo ao chão durante toda a execução."},
+  {id:"triceps-frances-corda",nome:"Tríceps Francês na Polia com Corda",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rope_Overhead_Triceps_Extension/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Polia alta + corda",nivel:2,
+   instrucoes:["De costas para a polia, corda atrás da cabeça, cotovelos apontando para cima.","Estenda os cotovelos levando a corda à frente.","Retorne controladamente."],
+   erros:["Abrir os cotovelos para os lados","Arquear a lombar"],
+   dica:"Mantenha os cotovelos próximos à cabeça durante todo o movimento."},
+  {id:"supino-declinado-barra",nome:"Supino Declinado Barra Reta",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Barbell_Bench_Press/0.jpg",grupo:"Peito",principais:["Peitoral maior (porção inferior)"],secundarios:["Tríceps"],equipamento:"Barra + banco declinado",nivel:3,
+   instrucoes:["Deite no banco declinado com os pés presos no apoio.","Desça a barra controladamente até o peito.","Empurre de volta sem travar os cotovelos."],
+   erros:["Descida rápida sem controle","Quicar a barra no peito"],
+   dica:"Peça apoio de alguém para pegar/devolver a barra com segurança nesse banco."},
+  {id:"abdominal-infra-declinado-estendidas",nome:"Abdominal Infra no Banco Declinado com Pernas Estendidas",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Reverse_Crunch/0.jpg",grupo:"Abdômen",principais:["Reto abdominal (porção inferior)"],secundarios:[],equipamento:"Banco declinado",nivel:2,
+   instrucoes:["Deite no banco declinado segurando o apoio atrás da cabeça.","Eleve as pernas estendidas em direção ao tronco.","Desça controladamente sem tocar o banco com força."],
+   erros:["Usar impulso/embalo","Deixar a lombar arquear no ponto mais baixo"],
+   dica:"Quanto mais lenta a descida, maior a ativação abdominal."},
+  {id:"abdominal-infra-declinado-flexionadas",nome:"Abdominal Infra no Banco Declinado com Pernas Flexionadas",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Reverse_Crunch/0.jpg",grupo:"Abdômen",principais:["Reto abdominal (porção inferior)"],secundarios:[],equipamento:"Banco declinado",nivel:1,
+   instrucoes:["Deite no banco declinado com os joelhos flexionados.","Eleve o quadril levando os joelhos em direção ao peito.","Desça controladamente."],
+   erros:["Usar embalo das pernas","Não completar a amplitude"],
+   dica:"Foque em elevar o quadril, não só dobrar os joelhos."},
+  {id:"mobilidade-quadril-2",nome:"Mobilidade de Quadril II",grupo:"Mobilidade",principais:["Quadril"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Realize o movimento em amplitude confortável, sem dor."],
+   erros:["Forçar amplitude além do confortável"],
+   dica:"Use esse exercício como aquecimento antes das cargas mais altas."},
+  {id:"mobilidade-toracica-3",nome:"Mobilidade Torácica III",grupo:"Mobilidade",principais:["Coluna torácica"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Movimente-se de forma controlada, um lado de cada vez."],
+   erros:["Fazer o movimento rápido demais"],
+   dica:"Respire de forma pausada a cada repetição."},
+  {id:"agachamento-caixote",nome:"Agachamento no Caixote",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Squat/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:["Isquiotibiais"],equipamento:"Caixote/step",nivel:2,
+   instrucoes:["Fique de costas para o caixote, pés na largura dos ombros.","Agache até sentar levemente no caixote, sem descarregar todo o peso.","Suba estendendo quadril e joelhos."],
+   erros:["Sentar com muito impacto no caixote","Perder o alinhamento do joelho"],
+   dica:"O caixote ajuda a controlar a profundidade e a postura do agachamento."},
+  {id:"subida-caixote-halteres",nome:"Subida no Caixote com Halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Step_Ups/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:[],equipamento:"Caixote + halteres",nivel:2,
+   instrucoes:["Segure os halteres ao lado do corpo, de frente para o caixote.","Suba apoiando um pé por vez, estendendo o quadril no topo.","Desça controladamente e alterne o lado."],
+   erros:["Impulsionar com a perna de trás","Descer rápido demais"],
+   dica:"Escolha uma altura de caixote que permita joelho a 90° na subida."},
+  {id:"agachamento-smith",nome:"Agachamento Smith",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Squat/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:["Isquiotibiais"],equipamento:"Máquina Smith",nivel:2,
+   instrucoes:["Posicione a barra sobre o trapézio, pés um pouco à frente do corpo.","Desça flexionando quadril e joelhos.","Suba estendendo quadril e joelhos sem travar."],
+   erros:["Pés muito próximos da linha da barra","Amplitude incompleta"],
+   dica:"A máquina Smith estabiliza a trajetória, permitindo focar na carga progressiva."},
+  {id:"afundo",nome:"Afundo",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunges/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos"],secundarios:["Isquiotibiais"],equipamento:"Peso do corpo ou halteres",nivel:2,
+   instrucoes:["Dê um passo à frente e desça até os dois joelhos ficarem próximos de 90°.","Empurre o chão com a perna da frente para voltar.","Alterne o lado."],
+   erros:["Joelho da frente ultrapassar muito a ponta do pé","Perder o equilíbrio lateral"],
+   dica:"Mantenha o tronco ereto durante toda a execução."},
+  {id:"mesa-flexora",nome:"Mesa Flexora",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/0.jpg",grupo:"Pernas",principais:["Isquiotibiais"],secundarios:[],equipamento:"Máquina mesa flexora",nivel:1,
+   instrucoes:["Deite de bruços na máquina com os tornozelos sob o apoio.","Flexione os joelhos trazendo o apoio em direção aos glúteos.","Desça controladamente."],
+   erros:["Elevar o quadril durante o movimento","Soltar o peso na volta"],
+   dica:"Na última repetição, segure a contração por 5 segundos para maior estímulo."},
+  {id:"aducao-quadril-maquina",nome:"Adução de Quadril Máquina",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Hip_Adduction/0.jpg",grupo:"Pernas",principais:["Adutores"],secundarios:[],equipamento:"Máquina de adução",nivel:1,
+   instrucoes:["Sente-se na máquina com as pernas apoiadas nos rolos.","Feche as pernas contraindo a parte interna da coxa.","Retorne controladamente."],
+   erros:["Usar amplitude excessiva com carga alta","Movimento muito rápido"],
+   dica:"Foque na contração da parte interna da coxa, não na velocidade."},
+  {id:"leg-press-pes-afastados",nome:"Leg Press 45° Pés Afastados",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg",grupo:"Pernas",principais:["Quadríceps","Glúteos","Adutores"],secundarios:["Isquiotibiais"],equipamento:"Máquina leg press",nivel:2,
+   instrucoes:["Posicione os pés afastados, mais largos que a largura dos ombros, na plataforma.","Desça controladamente flexionando os joelhos.","Empurre a plataforma sem travar os joelhos no topo."],
+   erros:["Deixar o quadril subir do encosto","Travar os joelhos com carga alta"],
+   dica:"O afastamento maior dos pés recruta mais a parte interna da coxa e glúteos."},
+  {id:"panturrilha-sentada-maquina",nome:"Panturrilha Sentado Máquina",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Calf_Raise/0.jpg",grupo:"Pernas",principais:["Sóleo"],secundarios:["Gastrocnêmio"],equipamento:"Máquina de panturrilha sentado",nivel:1,
+   instrucoes:["Sente-se com os joelhos sob o apoio e a ponta dos pés na plataforma.","Desça os calcanhares para alongar.","Suba na ponta dos pés contraindo a panturrilha."],
+   erros:["Amplitude curta","Movimento muito rápido"],
+   dica:"Com o joelho flexionado, esse exercício foca mais no sóleo do que na panturrilha em pé."},
+  {id:"alongamento-coluna",nome:"Alongamento de Coluna I",grupo:"Mobilidade",principais:["Coluna"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de alongamento específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Realize o movimento devagar, sem forçar."],
+   erros:["Movimentos bruscos"],
+   dica:"Use esse alongamento como preparação para o restante do treino."},
+  {id:"mobilidade-dorsal-6",nome:"Mobilidade Dorsal VI",grupo:"Mobilidade",principais:["Coluna torácica","Costas"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Movimente-se de forma controlada."],
+   erros:["Forçar além do confortável"],
+   dica:"Respire de forma pausada durante o movimento."},
+  {id:"abdominal-prancha-isometrica",nome:"Abdominal Prancha Isométrica",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg",grupo:"Abdômen",principais:["Core"],secundarios:["Lombar"],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Apoie antebraços e pontas dos pés no chão, corpo alinhado.","Contraia o abdômen e os glúteos.","Mantenha a posição pelo tempo determinado."],
+   erros:["Deixar o quadril cair ou subir demais","Prender a respiração"],
+   dica:"Imagine puxar o umbigo em direção à coluna para manter a contração."},
+  {id:"abdominal-obliquo-pedalada",nome:"Abdominal Oblíquo Alternado com Pedalada",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Air_Bike/0.jpg",grupo:"Abdômen",principais:["Oblíquos"],secundarios:["Reto abdominal"],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Deite com as mãos atrás da cabeça e pernas elevadas simulando pedalada.","Leve o cotovelo em direção ao joelho oposto.","Alterne os lados continuamente."],
+   erros:["Puxar a cabeça com as mãos","Movimento muito rápido sem contração"],
+   dica:"Foque em girar o tronco, não só mover os braços."},
+  {id:"pulldown-barra-aberta",nome:"Pulldown Barra Aberta",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg",grupo:"Costas",principais:["Latíssimo do dorso"],secundarios:["Tríceps"],equipamento:"Polia alta + barra reta",nivel:2,
+   instrucoes:["Segure a barra com pegada aberta, braços estendidos acima da cabeça.","Puxe a barra para baixo mantendo os braços esticados.","Retorne controladamente."],
+   erros:["Flexionar os cotovelos durante o movimento","Usar impulso do tronco"],
+   dica:"Mantenha os braços bem esticados do início ao fim do movimento."},
+  {id:"remada-baixa-unilateral",nome:"Remada Baixa Unilateral Neutra",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_One-arm_Cable_Pulley_Rows/0.jpg",grupo:"Costas",principais:["Latíssimo do dorso"],secundarios:["Bíceps"],equipamento:"Polia baixa",nivel:2,
+   instrucoes:["Sente-se na polia baixa segurando o cabo com uma mão, pegada neutra.","Puxe o cabo em direção ao quadril, levando o cotovelo para trás.","Retorne controladamente e alterne o lado."],
+   erros:["Girar o tronco durante a puxada","Usar impulso do corpo"],
+   dica:"Mantenha o tronco estável, deixando o braço fazer o trabalho."},
+  {id:"crucifixo-inverso-maquina",nome:"Crucifixo Inverso Máquina",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Machine_Flyes/0.jpg",grupo:"Ombros",principais:["Deltoide posterior"],secundarios:["Trapézio"],equipamento:"Máquina crucifixo inverso",nivel:1,
+   instrucoes:["Sente-se de frente para a máquina, peito apoiado.","Abra os braços para trás contraindo a parte posterior do ombro.","Retorne controladamente."],
+   erros:["Usar impulso do tronco","Elevar demais os ombros durante o movimento"],
+   dica:"Imagine juntar as escápulas no final do movimento."},
+  {id:"elevacao-lateral-sentado",nome:"Elevação Lateral Sentado com Halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Side_Lateral_Raise/0.jpg",grupo:"Ombros",principais:["Deltoide medial"],secundarios:[],equipamento:"Halteres + banco",nivel:1,
+   instrucoes:["Sentado, halteres ao lado do corpo, tronco ereto.","Eleve os braços lateralmente até a altura dos ombros.","Desça controladamente."],
+   erros:["Usar impulso do tronco (dificultado ao sentar, mas ainda possível)","Elevar acima da linha dos ombros"],
+   dica:"Sentado, fica mais difícil compensar com o corpo — ótimo para isolar o deltoide medial."},
+  {id:"mobilidade-escapula-12",nome:"Mobilidade de Escápula XII",grupo:"Mobilidade",principais:["Escápula","Ombros"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Foque em movimentar as escápulas de forma controlada."],
+   erros:["Compensar com o tronco em vez de mover a escápula"],
+   dica:"Use como aquecimento antes dos exercícios de peito e ombro."},
+  {id:"mobilidade-ombro-1",nome:"Mobilidade de Ombro I",grupo:"Mobilidade",principais:["Ombros"],secundarios:[],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Exercício de mobilidade específico da sua rotina — siga a orientação do vídeo ou do seu instrutor.","Realize o movimento em amplitude confortável."],
+   erros:["Forçar a amplitude além do confortável"],
+   dica:"Bom para preparar o ombro antes de cargas mais altas."},
+  {id:"abdominal-supra-declinado",nome:"Abdominal Supra Banco Declinado",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Sit-Ups_-_With_Bands/0.jpg",grupo:"Abdômen",principais:["Reto abdominal (porção superior)"],secundarios:[],equipamento:"Banco declinado",nivel:2,
+   instrucoes:["Deite no banco declinado segurando uma anilha no peito.","Eleve o tronco em direção aos joelhos.","Desça controladamente."],
+   erros:["Puxar o pescoço com as mãos","Usar embalo"],
+   dica:"Segurar a anilha aumenta a resistência — ajuste o peso conforme o nível."},
+  {id:"flexao-bracos-apoio",nome:"Flexão de Braços com Apoio",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Push-Up/0.jpg",grupo:"Peito",principais:["Peitoral maior"],secundarios:["Tríceps","Deltoide anterior"],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Apoie as mãos em uma superfície elevada, corpo alinhado.","Desça o peito em direção às mãos flexionando os cotovelos.","Empurre de volta à posição inicial."],
+   erros:["Deixar o quadril cair","Amplitude incompleta"],
+   dica:"Quanto mais alto o apoio, mais fácil a execução — ideal para iniciantes."},
+  {id:"prancha-isometrica-lateral",nome:"Prancha Isométrica Lateral Baixa",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Bridge/0.jpg",grupo:"Abdômen",principais:["Oblíquos"],secundarios:["Core"],equipamento:"Peso do corpo",nivel:1,
+   instrucoes:["Apoie o antebraço e a lateral do pé no chão, corpo alinhado.","Contraia o abdômen mantendo o quadril elevado.","Mantenha a posição e depois troque o lado."],
+   erros:["Deixar o quadril cair","Girar o tronco para frente ou para trás"],
+   dica:"Mantenha o olhar à frente para ajudar a manter o alinhamento da coluna."},
+  {id:"crucifixo-maquina",nome:"Crucifixo Máquina",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/0.jpg",grupo:"Peito",principais:["Peitoral maior"],secundarios:[],equipamento:"Máquina crucifixo (peck deck aberto)",nivel:1,
+   instrucoes:["Sente-se com as costas apoiadas, segurando os manípulos.","Aproxime os braços à frente do peito em arco.","Retorne controladamente até sentir alongamento leve."],
+   erros:["Usar impulso do tronco","Bater os manípulos com força"],
+   dica:"Tente aumentar a carga a cada série, mantendo a técnica controlada."},
+  {id:"peck-deck",nome:"Peck Deck",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/0.jpg",grupo:"Peito",principais:["Peitoral maior"],secundarios:[],equipamento:"Máquina peck deck",nivel:1,
+   instrucoes:["Sente-se com os antebraços apoiados nos suportes.","Aproxime os braços à frente do peito.","Retorne controladamente."],
+   erros:["Usar impulso do tronco","Amplitude excessiva forçando o ombro"],
+   dica:"Foque em contrair o peito no ponto final do movimento."},
+  {id:"triceps-frances-anilha",nome:"Tríceps Francês com Anilha",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Anilha",nivel:1,
+   instrucoes:["Segure a anilha com as duas mãos acima da cabeça.","Flexione os cotovelos descendo a anilha atrás da cabeça.","Estenda os cotovelos retornando à posição inicial."],
+   erros:["Abrir os cotovelos para os lados","Arquear a lombar"],
+   dica:"Mantenha os cotovelos apontando para cima durante todo o movimento."},
+  {id:"crucifixo-inclinado-halteres",nome:"Crucifixo Inclinado com Halteres",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Flyes/0.jpg",grupo:"Peito",principais:["Peitoral maior (porção clavicular)"],secundarios:["Deltoide anterior"],equipamento:"Halteres + banco inclinado",nivel:2,
+   instrucoes:["Deite no banco inclinado segurando os halteres acima do peito, cotovelos levemente flexionados.","Abra os braços em arco até a altura dos ombros.","Retorne contraindo o peitoral."],
+   erros:["Descer além da linha dos ombros","Flexionar demais o cotovelo"],
+   dica:"Controle a descida — é onde ocorre o maior alongamento do peitoral."},
+  {id:"triceps-banco-pernas-dobradas",nome:"Tríceps Banco com Pernas Dobradas",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:["Deltoide anterior"],equipamento:"Banco",nivel:2,
+   instrucoes:["Apoie as mãos na borda do banco, pernas dobradas e pés no chão.","Desça o quadril flexionando os cotovelos.","Empurre de volta estendendo os cotovelos."],
+   erros:["Descer rápido demais","Afastar demais o quadril do banco"],
+   dica:"Manter os joelhos dobrados reduz a carga em relação à variação com pernas estendidas."},
+  {id:"triceps-polia-barra-reta",nome:"Tríceps na Polia com Barra Reta",imagemUrl:"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg",grupo:"Tríceps",principais:["Tríceps braquial"],secundarios:[],equipamento:"Polia alta + barra reta",nivel:1,
+   instrucoes:["Segure a barra com pegada pronada, cotovelos junto ao corpo.","Estenda os cotovelos empurrando a barra para baixo.","Retorne controladamente."],
+   erros:["Afastar os cotovelos do tronco","Inclinar o tronco para gerar impulso"],
+   dica:"Fixe os cotovelos junto ao corpo do início ao fim do movimento."}
+];
+
+let workouts = [
+  {id:"w1",nome:"Treino 1",grupo:"Dorsal / Ombro / Bíceps",itens:[
+    {exId:"mobilidade-toracica-v",series:1,reps:"20",carga:0,descanso:30,obs:"Mobilidade — 20 repetições"},
+    {exId:"puxada-frente",series:3,reps:"12",carga:0,descanso:60,obs:"Cada puxada, segurar 2 segundos"},
+    {exId:"remada-baixa-polia-supinada",series:3,reps:"12",carga:0,descanso:60,obs:"Pegada supinada",combo:"w1-c1"},
+    {exId:"remada-curvada",series:1,reps:"12",carga:0,descanso:60,obs:"Pegada supinada",combo:"w1-c1"},
+    {exId:"rosca-direta-21",series:3,reps:"21",carga:0,descanso:60,obs:"Método 21"},
+    {exId:"rosca-direta-banco-inclinado",series:3,reps:"12",carga:0,descanso:60,obs:""},
+    {exId:"rosca-alternada-halteres",series:3,reps:"20",carga:0,descanso:45,obs:"10 repetições de cada lado"},
+    {exId:"elevacao-frontal-halteres",series:3,reps:"15",carga:0,descanso:45,obs:"Controlar a descida"},
+    {exId:"desenvolvimento-sentado-halteres",series:3,reps:"10",carga:0,descanso:60,obs:"Pegada neutra",combo:"w1-c2"},
+    {exId:"desenvolvimento-arnold",series:1,reps:"10",carga:0,descanso:60,obs:"",combo:"w1-c2"}
+  ]},
+  {id:"w2",nome:"Treino 2",grupo:"Peitoral / Tríceps / Abdômen",itens:[
+    {exId:"alongamento-punho-espaldar",series:1,reps:"20s",carga:0,descanso:15,obs:"Alongamento — segurar 20 segundos"},
+    {exId:"alongamento-peitoral-espaldar-2",series:1,reps:"20s",carga:0,descanso:15,obs:"Alongamento — segurar 20 segundos"},
+    {exId:"triceps-coice-unilateral",series:3,reps:"12",carga:0,descanso:45,obs:"12 repetições de cada lado"},
+    {exId:"triceps-frances-corda",series:3,reps:"15",carga:0,descanso:45,obs:""},
+    {exId:"triceps-corda",series:3,reps:"15",carga:0,descanso:45,obs:"Carga pesada"},
+    {exId:"supino-inclinado",series:3,reps:"20/15/12",carga:0,descanso:60,obs:"Aumentar a carga a cada série"},
+    {exId:"supino-declinado-barra",series:5,reps:"20/15/12/10/10",carga:0,descanso:60,obs:"Aumentar a carga a cada série"},
+    {exId:"abdominal-infra-declinado-estendidas",series:3,reps:"15",carga:0,descanso:30,obs:"Pernas estendidas"},
+    {exId:"abdominal-infra-declinado-flexionadas",series:3,reps:"15",carga:0,descanso:30,obs:"Pernas flexionadas"}
+  ]},
+  {id:"w3",nome:"Treino 3",grupo:"Perna completa",itens:[
+    {exId:"mobilidade-quadril-2",series:1,reps:"12",carga:0,descanso:20,obs:"Mobilidade"},
+    {exId:"mobilidade-toracica-3",series:1,reps:"10",carga:0,descanso:20,obs:"10 de cada lado"},
+    {exId:"agachamento-caixote",series:3,reps:"12",carga:0,descanso:60,obs:"",combo:"w3-c1"},
+    {exId:"subida-caixote-halteres",series:1,reps:"10",carga:0,descanso:60,obs:"10 de cada lado",combo:"w3-c1"},
+    {exId:"agachamento-smith",series:3,reps:"12",carga:0,descanso:60,obs:"Tentar aumentar a carga a cada série!",combo:"w3-c2"},
+    {exId:"afundo",series:1,reps:"12",carga:0,descanso:60,obs:"12 de cada lado",combo:"w3-c2"},
+    {exId:"cadeira-extensora",series:3,reps:"8-8",carga:0,descanso:45,obs:"8 reps carga média + 8 reps carga leve"},
+    {exId:"mesa-flexora",series:3,reps:"12",carga:0,descanso:45,obs:"Segurar 5 segundos na última repetição"},
+    {exId:"aducao-quadril-maquina",series:3,reps:"15",carga:0,descanso:45,obs:""},
+    {exId:"leg-press-pes-afastados",series:3,reps:"20",carga:0,descanso:60,obs:"10 reps + isometria de 5s + 10 reps"},
+    {exId:"panturrilha-sentada-maquina",series:4,reps:"20",carga:0,descanso:30,obs:""}
+  ]},
+  {id:"w4",nome:"Treino 4",grupo:"Dorsal / Ombro / Bíceps / Abdômen oblíquo",itens:[
+    {exId:"alongamento-coluna",series:1,reps:"—",carga:0,descanso:15,obs:"Alongamento"},
+    {exId:"mobilidade-dorsal-6",series:1,reps:"—",carga:0,descanso:15,obs:"Mobilidade"},
+    {exId:"abdominal-prancha-isometrica",series:3,reps:"30s",carga:0,descanso:30,obs:"Isometria",combo:"w4-c1"},
+    {exId:"abdominal-obliquo-pedalada",series:1,reps:"30",carga:0,descanso:30,obs:"",combo:"w4-c1"},
+    {exId:"puxada-frente",series:3,reps:"15",carga:0,descanso:60,obs:""},
+    {exId:"pulldown-barra-aberta",series:3,reps:"15",carga:0,descanso:60,obs:"Manter os braços bem esticados"},
+    {exId:"remada-baixa-unilateral",series:1,reps:"30",carga:0,descanso:60,obs:"30 de cada lado, pegada neutra"},
+    {exId:"crucifixo-inverso-maquina",series:3,reps:"15",carga:0,descanso:45,obs:""},
+    {exId:"elevacao-lateral-sentado",series:4,reps:"10-10",carga:0,descanso:45,obs:"10 reps carga média + 10 reps carga leve"},
+    {exId:"rosca-direta",series:3,reps:"12",carga:0,descanso:45,obs:"",combo:"w4-c2"},
+    {exId:"rosca-alternada-halteres",series:1,reps:"20",carga:0,descanso:45,obs:"10 de cada lado",combo:"w4-c2"}
+  ]},
+  {id:"w5",nome:"Treino 5",grupo:"Peitoral / Tríceps / Abdômen",itens:[
+    {exId:"mobilidade-escapula-12",series:1,reps:"10",carga:0,descanso:20,obs:"Mobilidade"},
+    {exId:"mobilidade-ombro-1",series:1,reps:"20",carga:0,descanso:20,obs:"Mobilidade"},
+    {exId:"abdominal-supra-declinado",series:3,reps:"15",carga:0,descanso:30,obs:"Segurar anilha"},
+    {exId:"flexao-bracos-apoio",series:2,reps:"10",carga:0,descanso:45,obs:"",combo:"w5-c1"},
+    {exId:"prancha-isometrica-lateral",series:1,reps:"15s",carga:0,descanso:45,obs:"15s de cada lado",combo:"w5-c1"},
+    {exId:"crucifixo-maquina",series:3,reps:"12",carga:0,descanso:45,obs:"Tentar aumentar a carga a cada série!",combo:"w5-c2"},
+    {exId:"peck-deck",series:3,reps:"15",carga:0,descanso:45,obs:"",combo:"w5-c2"},
+    {exId:"triceps-frances-anilha",series:1,reps:"15",carga:0,descanso:45,obs:"",combo:"w5-c2"},
+    {exId:"supino-inclinado",series:3,reps:"10",carga:0,descanso:60,obs:"",combo:"w5-c3"},
+    {exId:"crucifixo-inclinado-halteres",series:1,reps:"10",carga:0,descanso:60,obs:"",combo:"w5-c3"},
+    {exId:"supino-reto",series:3,reps:"12",carga:0,descanso:60,obs:"Aumentar a carga a cada rodada",combo:"w5-c4"},
+    {exId:"triceps-banco-pernas-dobradas",series:1,reps:"12",carga:0,descanso:60,obs:"",combo:"w5-c4"},
+    {exId:"triceps-polia-barra-reta",series:3,reps:"15",carga:0,descanso:45,obs:""}
+  ]}
+];
+
+const progressLog = {
+  "supino-reto":[{data:"01/01",carga:80,reps:10},{data:"15/01",carga:85,reps:10},{data:"30/01",carga:90,reps:8},{data:"14/02",carga:90,reps:10},{data:"01/03",carga:95,reps:8},{data:"20/03",carga:100,reps:6}],
+  "agachamento-smith":[{data:"05/01",carga:90,reps:8},{data:"20/01",carga:95,reps:8},{data:"05/02",carga:100,reps:6},{data:"25/02",carga:105,reps:6}],
+  "puxada-frente":[{data:"03/01",carga:50,reps:10},{data:"18/01",carga:55,reps:10},{data:"02/02",carga:60,reps:8}]
+};
+
+const bodyWeightLog = [
+  {data:"01/01",peso:86},{data:"15/01",peso:85},{data:"30/01",peso:84},
+  {data:"14/02",peso:83.5},{data:"01/03",peso:83},{data:"20/03",peso:82}
+];
+
+// Sessões concluídas: dia do mês (Março/2026) -> id do treino realizado
+const trainedSessions = [
+  {dia:1,  workoutId:"w1"}, {dia:3,  workoutId:"w2"}, {dia:5,  workoutId:"w3"}, {dia:6,  workoutId:"w4"},
+  {dia:8,  workoutId:"w5"}, {dia:10, workoutId:"w1"}, {dia:12, workoutId:"w2"}, {dia:13, workoutId:"w3"},
+  {dia:15, workoutId:"w4"}, {dia:17, workoutId:"w5"}, {dia:19, workoutId:"w1"}, {dia:20, workoutId:"w2"},
+  {dia:22, workoutId:"w3"}, {dia:24, workoutId:"w4"}, {dia:26, workoutId:"w5"}, {dia:27, workoutId:"w1"},
+  {dia:29, workoutId:"w2"}, {dia:31, workoutId:"w3"}
+];
+
+let profile = {nome:"Marcos Souza de Castro",idade:27,peso:82,altura:178,objetivo:"Redução de gordura / hipertrofia",nivel:"Iniciante",inicio:"Nov 2025"};
+
+const findEx = id => EXERCISES.find(e=>e.id===id);
+const GRUPOS = ["Todos", ...Array.from(new Set(EXERCISES.map(e=>e.grupo)))];
+
+/* ---------------- STATE ---------------- */
+let state = { tab:"dashboard", session:null, viewingSession:false, libFilter:"Todos", progressEx:"supino-reto", builderOpen:false, builderData:null, libDetail:null, finishModalOpen:false, resting:null, exerciseEditOpen:null, sidebarCollapsed:false, confirmAction:null, treinosTab:null, addCargaExId:null, addWeightOpen:false };
+let timerHandle = null;
+let restHandle = null;
+
+function setState(patch){ Object.assign(state, patch); render(); }
+
+/* ---------------- REST TIMER (per série) ---------------- */
+function playBeep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.22,0.44].forEach((delay,i)=>{
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = 880;
+      o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.001, ctx.currentTime+delay);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+delay+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+delay+0.18);
+      o.start(ctx.currentTime+delay); o.stop(ctx.currentTime+delay+0.2);
+    });
+  }catch(e){}
+}
+function clearRestTimer(){ if(restHandle){ clearInterval(restHandle); restHandle=null; } }
+function restTick(){
+  if(!state.resting) return clearRestTimer();
+  state.resting.remaining--;
+  if(state.resting.remaining<=0){
+    state.resting.remaining = 0;
+    state.resting.finished = true;
+    clearRestTimer();
+    playBeep();
+  }
+  updateRestBanner();
+}
+function startRest(exI, setI, seconds, exNome){
+  clearRestTimer();
+  state.resting = { exI, setI, remaining: seconds, total: seconds, exNome, finished:false };
+  updateRestBanner();
+  restHandle = setInterval(restTick, 1000);
+}
+function updateRestBanner(){
+  const el = document.getElementById("rest-banner");
+  if(!el) return;
+  if(!state.resting){ el.innerHTML = ""; return; }
+  const r = state.resting;
+  const m = String(Math.floor(r.remaining/60)).padStart(2,"0");
+  const s = String(r.remaining%60).padStart(2,"0");
+  el.innerHTML = r.finished
+    ? `<div class="rest-card finished"><span style="font-size:20px;">✅</span><div><div style="font-weight:700;">Descanso concluído — hora da próxima série!</div><div style="font-size:12px;opacity:.9;">${r.exNome}</div></div>
+        <button style="margin-left:auto;background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-weight:700;" data-dismissrest="1">OK</button></div>`
+    : `<div class="rest-card counting"><span style="font-size:20px;">${ICO.clock}</span><div><div style="font-weight:700;">Descanso — ${r.exNome}</div><div style="font-size:12px;opacity:.85;">Próxima série em breve</div></div>
+        <div class="mono" style="margin-left:auto;font-size:22px;font-weight:700;">${m}:${s}</div></div>`;
+  const dismissBtn = document.getElementById("rest-banner").querySelector("[data-dismissrest]");
+  if(dismissBtn) dismissBtn.onclick = ()=>{ state.resting = null; updateRestBanner(); };
+}
+
+/* ---------------- SVG LINE CHART (no deps, white-on-dark-panel) ---------------- */
+function lineChartSVG(data, key, w=560, h=200){
+  const pad = {t:14,r:14,b:26,l:34};
+  const vals = data.map(d=>d[key]);
+  const min = Math.min(...vals)*0.95, max = Math.max(...vals)*1.05;
+  const x = i => pad.l + (i/(data.length-1)) * (w-pad.l-pad.r);
+  const y = v => (h-pad.b) - ((v-min)/(max-min)) * (h-pad.t-pad.b);
+  const pts = data.map((d,i)=>`${x(i)},${y(d[key])}`).join(" ");
+  const gridY = [0,1,2,3].map(i => pad.t + i*((h-pad.t-pad.b)/3));
+  return `
+  <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">
+    ${gridY.map(gy=>`<line x1="${pad.l}" y1="${gy}" x2="${w-pad.r}" y2="${gy}" stroke="rgba(255,255,255,.25)" stroke-dasharray="3 3"/>`).join("")}
+    <polyline points="${pts}" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
+    ${data.map((d,i)=>`<circle cx="${x(i)}" cy="${y(d[key])}" r="3.5" fill="#FFFFFF"/>`).join("")}
+    ${data.map((d,i)=>`<text x="${x(i)}" y="${h-8}" font-size="10" fill="rgba(255,255,255,.65)" text-anchor="middle" font-family="Inter">${d.data}</text>`).join("")}
+  </svg>`;
+}
+
+/* ---------------- ICONS ---------------- */
+const ICO = { home:"🏠", dumbbell:"🏋️", book:"📖", trend:"📈", user:"👤", play:"▶️", check:"✓", flame:"🔥", trophy:"🏆", clock:"⏱", warn:"⚠️", info:"ℹ️", plus:"+", trash:"🗑", copy:"⧉", edit:"✎", x:"✕", calendar:"📅", weight:"⚖️", fireCal:"🔥" };
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  const app = document.getElementById("app");
+  const NAV = [
+    {id:"dashboard",label:"Início",ico:ICO.home},
+    {id:"treinos",label:"Treinos",ico:ICO.dumbbell},
+    {id:"biblioteca",label:"Biblioteca",ico:ICO.book},
+    {id:"progresso",label:"Avaliação",ico:ICO.trend},
+    {id:"perfil",label:"Perfil",ico:ICO.user}
+  ];
+
+  app.innerHTML = `
+    <div id="sidebar" class="${state.sidebarCollapsed?'collapsed':''}" style="display:flex;">
+      <div class="logo"><span>🏋️</span><span class="label">IronLog</span></div>
+      ${NAV.map(n=>`<button class="navbtn ${state.tab===n.id && !(state.session&&state.viewingSession)?'active':''}" data-nav="${n.id}" title="${n.label}"><span>${n.ico}</span><span class="label">${n.label}</span></button>`).join("")}
+      <button id="sidebar-handle" title="${state.sidebarCollapsed?'Expandir menu':'Minimizar menu'}">${state.sidebarCollapsed?'›':'‹'}</button>
+    </div>
+    <div id="content">${state.session && state.viewingSession ? renderSession() : renderTab()}</div>
+    <div id="bottomnav">
+      ${NAV.map(n=>`<button class="bnbtn ${state.tab===n.id && !(state.session&&state.viewingSession)?'active':''}" data-nav="${n.id}"><span>${n.ico}</span><span>${n.label}</span></button>`).join("")}
+    </div>
+    ${state.session && !state.viewingSession ? `
+    <button id="resume-session-btn" data-resume-session="1">
+      <span>🏋️</span>
+      <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${state.session.nome}</span>
+      <span class="mono" id="floating-timer">00:00</span>
+      <span style="opacity:.85;">${state.session.paused?'⏸':'▶'} Voltar</span>
+    </button>` : ""}
+    ${state.builderOpen ? renderBuilder() : ""}
+    ${state.libDetail ? renderLibDetail() : ""}
+    ${state.exerciseEditOpen ? renderExerciseEditForm() : ""}
+    ${state.finishModalOpen ? renderFinishModal() : ""}
+    ${state.confirmAction ? renderConfirmModal() : ""}
+    ${state.addCargaExId ? renderAddCargaModal() : ""}
+    ${state.addWeightOpen ? renderAddWeightModal() : ""}
+  `;
+  attachEvents();
+
+  const shouldTick = state.session && !state.session.paused;
+  if(shouldTick && !timerHandle){
+    timerHandle = setInterval(updateTimer, 1000);
+    updateTimer();
+  } else if(!shouldTick && timerHandle){
+    clearInterval(timerHandle); timerHandle = null;
+  }
+  if(!state.session){ clearRestTimer(); state.resting = null; }
+  if(state.session) updateRestBanner();
+}
+
+function updateTimer(){
+  if(!state.session) return;
+  const secs = Math.floor((Date.now()-state.session.startTime)/1000);
+  const m = String(Math.floor(secs/60)).padStart(2,"0");
+  const s = String(secs%60).padStart(2,"0");
+  const txt = `${m}:${s}`;
+  const el = document.getElementById("session-timer");
+  if(el) el.textContent = txt;
+  const floatEl = document.getElementById("floating-timer");
+  if(floatEl) floatEl.textContent = txt;
+}
+
+function renderTab(){
+  if(state.tab==="dashboard") return renderDashboard();
+  if(state.tab==="treinos") return renderTreinos();
+  if(state.tab==="biblioteca") return renderBiblioteca();
+  if(state.tab==="progresso") return renderProgresso();
+  if(state.tab==="perfil") return renderPerfil();
+  return "";
+}
+
+function renderDashboard(){
+  const w = workouts[0];
+  const streak = 6, totalTreinos = 42;
+  const data = progressLog["supino-reto"];
+  return `
+    <div style="margin-bottom:22px;">
+      <div style="color:var(--textDim);font-size:14px;">Bom treino, ${profile.nome.split(" ")[0]}</div>
+      <div class="display" style="font-size:32px;font-weight:700;">Vamos evoluir hoje</div>
+    </div>
+    <div style="display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="card" style="flex:1 1 220px;display:flex;align-items:center;gap:16px;">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="7"/>
+          <circle cx="32" cy="32" r="27" fill="none" stroke="#FFFFFF" stroke-width="7"
+            stroke-dasharray="${2*Math.PI*27}" stroke-dashoffset="${2*Math.PI*27*(1-streak/7)}"
+            stroke-linecap="round" transform="rotate(-90 32 32)"/>
+          <text x="32" y="37" text-anchor="middle" fill="#fff" font-size="18" font-weight="700" font-family="Barlow Condensed">${streak}</text>
+        </svg>
+        <div>
+          <div style="font-size:12px;font-weight:600;">${ICO.flame} SEQUÊNCIA</div>
+          <div class="display" style="font-size:20px;font-weight:700;">${streak} dias seguidos</div>
+          <div style="font-size:12px;opacity:.75;">Meta semanal: 5 treinos</div>
+        </div>
+      </div>
+      <div class="card" style="flex:1 1 260px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px;opacity:.85;">TREINO DE HOJE</div>
+        <div class="display" style="font-size:24px;font-weight:700;">${w.nome} · ${w.grupo}</div>
+        <div style="font-size:13px;margin:6px 0 12px;opacity:.85;">${w.itens.length} exercícios · ~${w.itens.length*12} min</div>
+        <button class="btn-primary" data-start="${w.id}">${ICO.play} Iniciar treino</button>
+      </div>
+    </div>
+    <div class="grid-stats">
+      <div class="card stat"><div class="lbl">${ICO.dumbbell} TREINOS TOTAIS</div><div class="display val">${totalTreinos}</div></div>
+      <div class="card stat"><div class="lbl">🎯 PESO ATUAL</div><div class="display val">${profile.peso} kg</div><div class="sub">Meta: ${profile.objetivo}</div></div>
+      <div class="card stat"><div class="lbl">${ICO.trophy} PR RECENTE</div><div class="display val">100 kg</div><div class="sub">Supino reto</div></div>
+      <div class="card stat"><div class="lbl">${ICO.trend} EVOLUÇÃO 60D</div><div class="display val">+15%</div><div class="sub">Carga média</div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="display" style="font-size:18px;font-weight:700;">Evolução — Supino reto</div>
+        <button style="background:none;border:none;color:#fff;font-weight:600;opacity:.85;" data-nav="progresso">Ver tudo →</button>
+      </div>
+      ${lineChartSVG(data,"carga")}
+    </div>
+  `;
+}
+
+function youtubeId(url){
+  if(!url) return null;
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+  return m ? m[1] : null;
+}
+
+function renderExerciseThumb(ex){
+  const yt = youtubeId(ex.videoUrl);
+  if(yt){
+    return `<div style="position:relative;border-radius:10px;overflow:hidden;height:150px;background:#000;cursor:pointer;" data-libdetail="${ex.id}">
+      <img src="https://img.youtube.com/vi/${yt}/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.75;"/>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+        <div style="width:52px;height:52px;border-radius:50%;background:rgba(230,33,23,.92);display:flex;align-items:center;justify-content:center;">
+          <span style="color:#fff;font-size:20px;margin-left:3px;">▶</span>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.75);color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;">Assista no YouTube</div>
+    </div>`;
+  }
+  if(ex.videoUrl){
+    return `<div style="position:relative;border-radius:10px;overflow:hidden;height:150px;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;cursor:pointer;" data-libdetail="${ex.id}">
+      <span style="font-size:32px;">${ICO.play}</span>
+    </div>`;
+  }
+  if(ex.imagemUrl){
+    return `<div style="border-radius:10px;overflow:hidden;height:150px;cursor:pointer;" data-libdetail="${ex.id}">
+      <img src="${ex.imagemUrl}" style="width:100%;height:100%;object-fit:cover;"/>
+    </div>`;
+  }
+  return `<div style="border-radius:10px;height:150px;background:var(--cardAlt);display:flex;align-items:center;justify-content:center;cursor:pointer;" data-libdetail="${ex.id}">
+    <span style="font-size:32px;opacity:.6;">🏋️</span>
+  </div>`;
+}
+
+function renderTreinos(){
+  const activeId = state.treinosTab || (workouts[0] && workouts[0].id);
+  const w = workouts.find(x=>x.id===activeId) || workouts[0];
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h1 class="pagetitle" style="margin:0;">Treinos</h1>
+      <button class="btn-primary" data-newworkout="1">${ICO.plus} Novo</button>
+    </div>
+    <div class="filterrow">
+      <button class="filterbtn ${state.treinosTab==='instrucoes'?'active':''}" data-treinostab="instrucoes">Instruções</button>
+      ${workouts.map(wk=>`<button class="filterbtn ${activeId===wk.id && state.treinosTab!=='instrucoes'?'active':''}" data-treinostab="${wk.id}">${wk.nome}</button>`).join("")}
+    </div>
+
+    ${state.treinosTab==='instrucoes' ? `
+      <div class="card">
+        <div class="display" style="font-size:18px;font-weight:700;margin-bottom:10px;">Como usar</div>
+        <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.9;color:var(--textDim);">
+          <li>Deslize os cartões acima para navegar entre os treinos da semana.</li>
+          <li>Toque na foto/vídeo de um exercício para ver a demonstração e as instruções completas.</li>
+          <li><b style="color:var(--text);">Adicionar Carga</b> registra seu peso do dia sem precisar iniciar o cronômetro.</li>
+          <li><b style="color:var(--text);">Iniciar treino</b> abre o modo com cronômetro, descanso entre séries e histórico da sessão.</li>
+        </ul>
+      </div>
+    ` : w ? `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin-bottom:4px;">${w.nome.toUpperCase()}</div>
+        <div class="display" style="font-size:20px;font-weight:700;">${w.grupo}</div>
+        <div style="font-size:13px;color:var(--textDim);margin-top:4px;">${w.itens.length} exercícios programados</div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button style="flex:1;background:var(--accent);color:#161208;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:14px;" data-start="${w.id}">${ICO.play} Iniciar treino</button>
+          <button class="btn-ghost" data-edit="${w.id}" title="Editar treino">${ICO.edit}</button>
+          <button class="btn-ghost" data-dup="${w.id}" title="Duplicar">${ICO.copy}</button>
+          <button class="btn-ghost" style="color:var(--danger);" data-del="${w.id}" title="Excluir">${ICO.trash}</button>
+        </div>
+      </div>
+
+      ${groupItemsForBuilder(w.itens).map((g,gi)=>{
+        if(g.type==="single"){
+          return `<div style="margin-bottom:14px;">${renderExerciseNumberedCard(g.item, g.index+1)}</div>`;
+        }
+        return `<div class="card" style="margin-bottom:14px;">
+          <div class="combo-header">
+            <span class="stack-ico">🔗</span>
+            <div><div style="font-weight:700;font-size:13px;">Exercícios combinados</div><div style="font-size:11px;opacity:.7;">Alterne esses exercícios</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            ${g.items.map(it=>renderExerciseNumberedCard(it.item, it.index+1, true)).join("")}
+          </div>
+        </div>`;
+      }).join("")}
+    ` : `<div class="card">Nenhum treino cadastrado ainda.</div>`}
+  `;
+}
+
+function renderExerciseNumberedCard(it, num, nested){
+  const ex = findEx(it.exId);
+  const wrapStyle = nested ? "background:var(--cardAlt);border-radius:10px;padding:12px;" : "";
+  return `
+  <div class="${nested?'':'card'}" style="${wrapStyle}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);color:#161208;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
+      <div>
+        <div style="font-weight:700;font-size:14.5px;">${ex.nome}</div>
+        <div style="font-size:12px;color:var(--textDim);">${ex.grupo}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">${renderExerciseThumb(ex)}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="pill">Séries: ${it.series}</span>
+      <span class="pill">Reps: ${it.reps}</span>
+      <span class="pill">Descanso: ${it.descanso}s</span>
+    </div>
+    ${it.obs ? `<div style="font-size:12px;color:var(--textFaint);margin-bottom:10px;">${it.obs}</div>` : ""}
+    <button style="width:100%;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:9px;font-weight:700;font-size:13px;" data-addcarga="${ex.id}">${ICO.weight} Adicionar Carga</button>
+  </div>`;
+}
+
+function renderAddCargaModal(){
+  const ex = findEx(state.addCargaExId);
+  if(!ex) return "";
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:380px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="display" style="font-size:19px;font-weight:700;">Adicionar carga</div>
+        <button class="btn-ghost" data-closeaddcarga="1">${ICO.x}</button>
+      </div>
+      <div style="font-size:13px;color:var(--textDim);margin-bottom:14px;">${ex.nome}</div>
+      <div class="row" style="margin-bottom:16px;">
+        <div style="flex:1;"><div class="field-lbl">Carga (kg)</div><input class="field-in" id="ac-carga" type="number" placeholder="Ex: 40"/></div>
+        <div style="flex:1;"><div class="field-lbl">Repetições</div><input class="field-in" id="ac-reps" type="number" placeholder="Ex: 12"/></div>
+      </div>
+      <button class="btn-primary" style="width:100%;" data-saveaddcarga="1">Salvar</button>
+    </div>
+  </div>`;
+}
+
+function renderBiblioteca(){
+  const list = state.libFilter==="Todos" ? EXERCISES : EXERCISES.filter(e=>e.grupo===state.libFilter);
+  return `
+    <h1 class="pagetitle">Biblioteca de exercícios</h1>
+    <div class="filterrow">
+      ${GRUPOS.map(g=>`<button class="filterbtn ${state.libFilter===g?'active':''}" data-filter="${g}">${g}</button>`).join("")}
+    </div>
+    <div class="exgrid">
+      ${list.map(ex=>`
+        <div class="card excard" data-libdetail="${ex.id}">
+          <div class="thumb">🏋️</div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${ex.nome}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="pill teal">${ex.grupo}</span>
+            <span style="font-size:11px;opacity:.75;">Nível ${ex.nivel}/3</span>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderExerciseMedia(ex){
+  if(ex.videoUrl){
+    const yt = ex.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+    if(yt){
+      return `<div class="card" style="padding:0;overflow:hidden;">
+        <div style="position:relative;width:100%;padding-top:56.25%;">
+          <iframe src="https://www.youtube.com/embed/${yt[1]}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe>
+        </div>
+      </div>`;
+    }
+    return `<div class="card" style="padding:0;overflow:hidden;">
+      <video controls style="width:100%;max-height:260px;display:block;background:var(--cardAlt);" src="${ex.videoUrl}"></video>
+    </div>`;
+  }
+  if(ex.imagemUrl){
+    return `<div class="card" style="padding:0;overflow:hidden;">
+      <img id="ex-photo" src="${ex.imagemUrl}" alt="${ex.nome}" style="width:100%;max-height:260px;object-fit:cover;display:block;background:var(--cardAlt);"/>
+      <div style="padding:8px 12px;font-size:11px;opacity:.7;">Foto ilustrativa — banco de imagens de domínio público (free-exercise-db)</div>
+    </div>`;
+  }
+  return `<div class="card" style="height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;">
+    <svg id="demo-svg" width="150" height="90" viewBox="0 0 200 120">
+      <g id="demo-anim" class="demo-anim">
+        <rect x="20" y="52" width="160" height="10" rx="5" fill="#fff"/>
+        <circle cx="32" cy="57" r="17" fill="#fff" opacity=".9"/>
+        <circle cx="168" cy="57" r="17" fill="#fff" opacity=".9"/>
+      </g>
+    </svg>
+    <span style="font-size:11px;opacity:.75;">Demonstração animada do movimento</span>
+    <button id="demo-toggle" style="position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,.22);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;">${ICO.play} Assistir</button>
+  </div>`;
+}
+
+function renderLibDetail(){
+  const ex = findEx(state.libDetail);
+  if(!ex) return "";
+  return `
+  <div class="modal-backdrop" data-closelib="1">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="display" style="font-size:24px;font-weight:700;">${ex.nome}</div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <span class="pill teal">${ex.grupo}</span><span class="pill">${ex.equipamento}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-ghost" data-openexedit="${ex.id}" title="Editar exercício">${ICO.edit}</button>
+          <button class="btn-ghost" data-closelib="1">${ICO.x}</button>
+        </div>
+      </div>
+      <div style="margin:14px 0;">${renderExerciseMedia(ex)}</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--textDim);margin-bottom:6px;">MÚSCULOS TRABALHADOS</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${ex.principais.map(m=>`<span class="pill accent">${m}</span>`).join("")}
+          ${ex.secundarios.map(m=>`<span class="pill">${m}</span>`).join("")}
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--textDim);margin-bottom:6px;">PASSO A PASSO</div>
+        <ol style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.7;color:var(--text);">
+          ${ex.instrucoes.map(p=>`<li>${p}</li>`).join("")}
+        </ol>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${ICO.warn} ERROS COMUNS</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;opacity:.9;">
+          ${ex.erros.map(e=>`<li>${e}</li>`).join("")}
+        </ul>
+      </div>
+      <div class="card" style="display:flex;gap:8px;">
+        <span>${ICO.info}</span><div style="font-size:13px;">${ex.dica}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+const findWorkoutById = id => workouts.find(w=>w.id===id) || {nome:"Treino", grupo:""};
+
+function renderExerciseEditForm(){
+  const ex = findEx(state.exerciseEditOpen);
+  if(!ex) return "";
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="display" style="font-size:22px;font-weight:700;">Editar exercício</div>
+        <button class="btn-ghost" data-closeexedit="1">${ICO.x}</button>
+      </div>
+      <div style="margin-bottom:12px;"><div class="field-lbl">Nome</div><input class="field-in" id="ee-nome" value="${ex.nome}"/></div>
+      <div class="row" style="margin-bottom:12px;">
+        <div style="flex:1;"><div class="field-lbl">Grupo muscular</div><input class="field-in" id="ee-grupo" value="${ex.grupo}"/></div>
+        <div style="flex:1;"><div class="field-lbl">Equipamento</div><input class="field-in" id="ee-equipamento" value="${ex.equipamento||''}"/></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div class="field-lbl">Link da foto (URL de uma imagem na internet)</div>
+        <input class="field-in" id="ee-imagem" placeholder="https://..." value="${ex.imagemUrl||''}"/>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div class="field-lbl">Link do vídeo (YouTube ou arquivo .mp4)</div>
+        <input class="field-in" id="ee-video" placeholder="https://..." value="${ex.videoUrl||''}"/>
+      </div>
+      <div style="font-size:11px;color:var(--textFaint);margin-bottom:16px;">Se preencher o vídeo, ele aparece no lugar da foto na tela de detalhes. Deixe em branco para manter a demonstração animada.</div>
+      <button class="btn-primary" style="width:100%;" data-saveexedit="1">Salvar alterações</button>
+    </div>
+  </div>`;
+}
+
+function renderCalendar(){
+  const year=2026, month=2; // Março (0-indexed)
+  const sessionByDay = {};
+  trainedSessions.forEach(s=> sessionByDay[s.dia] = s.workoutId);
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const weekdays = ["D","S","T","Q","Q","S","S"];
+  let cells = "";
+  for(let i=0;i<firstDay;i++) cells += `<div></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const wId = sessionByDay[d];
+    if(wId){
+      const letra = findWorkoutById(wId).nome.replace("Treino ","");
+      cells += `<div class="caldot" style="background:var(--active);color:#0B2013;flex-direction:column;line-height:1;gap:1px;" title="${findWorkoutById(wId).nome}">
+        <span style="font-size:11px;">${d}</span><span style="font-size:8px;font-weight:800;">${letra}</span>
+      </div>`;
+    } else {
+      cells += `<div class="caldot" style="opacity:.5;">${d}</div>`;
+    }
+  }
+  return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-weight:700;font-size:15px;">${ICO.calendar} Março 2026</div>
+      <div style="font-size:12px;opacity:.85;">${trainedSessions.length} dias treinados</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;">
+      ${weekdays.map(w=>`<div style="text-align:center;font-size:10px;opacity:.6;">${w}</div>`).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;">${cells}</div>
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;opacity:.9;">HISTÓRICO DO MÊS</div>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;">
+      ${[...trainedSessions].sort((a,b)=>b.dia-a.dia).map(s=>{
+        const w = findWorkoutById(s.workoutId);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.15);padding-bottom:6px;">
+          <span style="font-size:13px;">${String(s.dia).padStart(2,"0")}/03</span>
+          <span class="pill" style="background:rgba(255,255,255,.18);color:#fff;">${w.nome} · ${w.grupo}</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function classificarIMC(imc){
+  if(imc < 18.5) return "Abaixo do peso";
+  if(imc < 25) return "Peso normal";
+  if(imc < 30) return "Sobrepeso";
+  if(imc < 35) return "Obesidade Grau I";
+  if(imc < 40) return "Obesidade Grau II";
+  return "Obesidade Grau III";
+}
+
+function renderProgresso(){
+  const exId = state.progressEx;
+  const data = progressLog[exId];
+  const ex = findEx(exId);
+  const first = data[0], last = data[data.length-1];
+  const variacao = (((last.carga-first.carga)/first.carga)*100).toFixed(0);
+
+  const wFirst = bodyWeightLog[0], wLast = bodyWeightLog[bodyWeightLog.length-1];
+  const variacaoPeso = (((wLast.peso-wFirst.peso)/wFirst.peso)*100).toFixed(1);
+
+  const alturaM = profile.altura/100;
+  const imc = (wLast.peso / (alturaM*alturaM));
+  const classificacao = classificarIMC(imc);
+
+  return `
+    <h1 class="pagetitle">Avaliação</h1>
+
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--accentSoft);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="color:var(--accent);font-weight:800;">✓</span>
+        </div>
+        <div>
+          <div class="display" style="font-size:18px;font-weight:700;">Sua Avaliação</div>
+          <div style="font-size:13px;color:var(--textDim);">IMC ${imc.toFixed(1)} · ${classificacao}</div>
+        </div>
+      </div>
+      <button style="width:100%;margin-top:10px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:9px;font-weight:700;font-size:13px;" data-openaddweight="1">${ICO.plus} Registrar novo peso</button>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--textDim);margin-bottom:8px;">EVOLUÇÃO CORPORAL</div>
+    <div class="grid-stats">
+      <div class="card stat"><div class="lbl">${ICO.weight} PESO ATUAL</div><div class="display val">${wLast.peso} kg</div></div>
+      <div class="card stat"><div class="lbl">${ICO.trend} VARIAÇÃO NO PERÍODO</div><div class="display val">${variacaoPeso}%</div><div class="sub">${wFirst.data} → ${wLast.data}</div></div>
+      <div class="card stat"><div class="lbl">🎯 META</div><div class="display val">80 kg</div><div class="sub">Faltam ${(wLast.peso-80).toFixed(1)} kg</div></div>
+    </div>
+    <div class="card" style="margin-bottom:24px;">${lineChartSVG(bodyWeightLog,"peso",560,180)}</div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--textDim);margin-bottom:8px;">CARGA POR EXERCÍCIO</div>
+    <div class="filterrow">
+      ${Object.keys(progressLog).map(id=>`<button class="filterbtn ${exId===id?'active':''}" data-progex="${id}">${findEx(id).nome}</button>`).join("")}
+    </div>
+    <div class="grid-stats">
+      <div class="card stat"><div class="lbl">${ICO.trophy} RECORDE PESSOAL</div><div class="display val">${Math.max(...data.map(d=>d.carga))} kg</div></div>
+      <div class="card stat"><div class="lbl">${ICO.trend} EVOLUÇÃO NO PERÍODO</div><div class="display val">${variacao>0?'+':''}${variacao}%</div><div class="sub">${first.data} → ${last.data}</div></div>
+      <div class="card stat"><div class="lbl">${ICO.dumbbell} ÚLTIMA SESSÃO</div><div class="display val">${last.carga}kg × ${last.reps}</div></div>
+    </div>
+    ${variacao>0?`<div class="card" style="margin-bottom:16px;display:flex;gap:8px;align-items:center;">
+      ${ICO.flame}<span style="font-size:13px;">Você aumentou sua carga em <b>${variacao}%</b> em ${ex.nome} desde ${first.data}.</span>
+    </div>`:""}
+    <div class="card" style="margin-bottom:24px;">${lineChartSVG(data,"carga",560,200)}</div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--textDim);margin-bottom:8px;">CONSTÂNCIA</div>
+    ${renderCalendar()}
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;opacity:.9;">HISTÓRICO — ${ex.nome.toUpperCase()}</div>
+      ${[...data].reverse().map(d=>`
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px;">
+          <span style="font-size:13px;opacity:.85;">${d.data}</span>
+          <span class="mono" style="font-weight:600;font-size:13px;">${d.carga} kg × ${d.reps} reps</span>
+        </div>`).join("")}
+    </div>
+  `;
+}
+
+function renderAddWeightModal(){
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:360px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div class="display" style="font-size:19px;font-weight:700;">Registrar novo peso</div>
+        <button class="btn-ghost" data-closeaddweight="1">${ICO.x}</button>
+      </div>
+      <div style="margin-bottom:16px;"><div class="field-lbl">Peso corporal (kg)</div><input class="field-in" id="aw-peso" type="number" step="0.1" placeholder="Ex: 81.5"/></div>
+      <button class="btn-primary" style="width:100%;" data-saveaddweight="1">Salvar</button>
+    </div>
+  </div>`;
+}
+
+function renderPerfil(){
+  return `
+    <h1 class="pagetitle" style="margin-bottom:4px;">Perfil</h1>
+    <div style="color:var(--textDim);font-size:13px;margin-bottom:18px;">Treinando desde ${profile.inicio}</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:28px;">${ICO.user}</div>
+      <div>
+        <div class="display" style="font-size:20px;font-weight:700;color:var(--text);">${profile.nome}</div>
+        <span class="pill accent">${profile.nivel}</span>
+      </div>
+    </div>
+    <div style="max-width:480px;">
+      <div style="margin-bottom:12px;"><div class="field-lbl">Nome</div><input class="field-in" id="p-nome" value="${profile.nome}"/></div>
+      <div class="row" style="margin-bottom:12px;">
+        <div style="flex:1;"><div class="field-lbl">Idade</div><input class="field-in" id="p-idade" type="number" value="${profile.idade}"/></div>
+        <div style="flex:1;"><div class="field-lbl">Peso (kg)</div><input class="field-in" id="p-peso" type="number" value="${profile.peso}"/></div>
+      </div>
+      <div class="row" style="margin-bottom:12px;">
+        <div style="flex:1;"><div class="field-lbl">Altura (cm)</div><input class="field-in" id="p-altura" type="number" value="${profile.altura}"/></div>
+        <div style="flex:1;"><div class="field-lbl">Nível</div><input class="field-in" id="p-nivel" value="${profile.nivel}"/></div>
+      </div>
+      <div style="margin-bottom:12px;"><div class="field-lbl">Objetivo</div><input class="field-in" id="p-objetivo" value="${profile.objetivo}"/></div>
+      <div class="card" style="margin:16px 0;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;opacity:.9;">EVOLUÇÃO CORPORAL</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          ${["Peso","Medidas","Fotos","% Gordura"].map(t=>`
+            <div style="flex:1 1 100px;background:rgba(255,255,255,.14);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:11px;opacity:.75;margin-bottom:4px;">${t}</div>
+              <div style="font-size:12px;font-weight:600;">+ Registrar</div>
+            </div>`).join("")}
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%;" data-saveprofile="1">Salvar alterações</button>
+    </div>
+  `;
+}
+
+/* ---------------- BUILDER ---------------- */
+function groupItemsForBuilder(itens){
+  const groups = [];
+  let i = 0;
+  while(i < itens.length){
+    const combo = itens[i].combo;
+    if(combo){
+      const items = [];
+      let j = i;
+      while(j < itens.length && itens[j].combo === combo){ items.push({item:itens[j], index:j}); j++; }
+      groups.push({type:"combo", comboId:combo, items});
+      i = j;
+    } else {
+      groups.push({type:"single", item:itens[i], index:i});
+      i++;
+    }
+  }
+  return groups;
+}
+
+function renderBuilder(){
+  const w = state.builderData || {id:null,nome:"",grupo:"",itens:[]};
+  const groups = groupItemsForBuilder(w.itens);
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div class="display" style="font-size:22px;font-weight:700;">${w.id?'Editar treino':'Novo treino'}</div>
+        <button class="btn-ghost" data-closebuilder="1">${ICO.x}</button>
+      </div>
+      <div class="row" style="margin-bottom:14px;">
+        <input class="field-in" id="b-nome" placeholder="Nome do treino (ex: Treino A)" value="${w.nome}"/>
+        <input class="field-in" id="b-grupo" placeholder="Grupo muscular" value="${w.grupo}"/>
+      </div>
+      <div id="b-itens" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+        ${groups.map((g,gi)=>{
+          if(g.type==="single"){
+            const isLast = g.index === w.itens.length-1;
+            return `<div class="card" data-itemidx="${g.index}">
+              ${renderBuilderItemInner(g.item, g.index)}
+              ${!isLast ? `<button style="margin-top:8px;background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;" data-combo="${g.index}">🔗 Combinar com o próximo</button>` : ""}
+            </div>`;
+          }
+          return `<div class="card">
+            <div class="combo-header">
+              <span class="stack-ico">🔗</span>
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:14px;">Exercícios combinados</div>
+                <div style="font-size:11px;opacity:.75;">Alterne esses exercícios</div>
+              </div>
+              <button style="background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:600;" data-uncombo="${g.comboId}">Desfazer</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              ${g.items.map(it=>`<div class="combo-sub" data-itemidx="${it.index}">${renderBuilderItemInner(it.item, it.index)}</div>`).join("")}
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+      <button class="btn-ghost" style="width:100%;border:1px dashed var(--border);color:var(--accent);font-weight:600;padding:10px;" data-togglepicker="1">${ICO.plus} Adicionar exercício</button>
+      <div id="b-picker" style="display:none;margin-top:10px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;background:var(--bgElevated);">
+        ${EXERCISES.map(ex=>`<div style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;" data-addex="${ex.id}">${ex.nome} <span style="color:var(--textFaint);font-size:11px;">· ${ex.grupo}</span></div>`).join("")}
+      </div>
+      <button class="btn-primary" style="width:100%;margin-top:18px;" data-saveworkout="1">Salvar treino</button>
+    </div>
+  </div>`;
+}
+function renderBuilderItemInner(it,i){
+  const ex = findEx(it.exId);
+  return `
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-weight:700;font-size:14px;">${ex?.nome}</div>
+      <button style="background:none;border:none;color:var(--danger);" data-removeitem="${i}">${ICO.trash}</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+      <div><div style="font-size:10px;opacity:.7;margin-bottom:3px;">Séries</div><input class="small-in" style="width:100%;" data-field="series" data-idx="${i}" type="number" value="${it.series}"/></div>
+      <div><div style="font-size:10px;opacity:.7;margin-bottom:3px;">Reps</div><input class="small-in" style="width:100%;" data-field="reps" data-idx="${i}" value="${it.reps}"/></div>
+      <div><div style="font-size:10px;opacity:.7;margin-bottom:3px;">Carga (kg)</div><input class="small-in" style="width:100%;" data-field="carga" data-idx="${i}" type="number" value="${it.carga}"/></div>
+      <div><div style="font-size:10px;opacity:.7;margin-bottom:3px;">Descanso (s)</div><input class="small-in" style="width:100%;" data-field="descanso" data-idx="${i}" type="number" value="${it.descanso}"/></div>
+    </div>`;
+}
+
+/* ---------------- SESSION ---------------- */
+function groupLogEntries(log){
+  const groups = [];
+  let i = 0;
+  while(i < log.length){
+    const combo = log[i].alvo.combo;
+    if(combo){
+      const items = [];
+      let j = i;
+      while(j < log.length && log[j].alvo.combo === combo){ items.push({entry:log[j], exI:j}); j++; }
+      groups.push({type:"combo", comboId:combo, items});
+      i = j;
+    } else {
+      groups.push({type:"single", entry:log[i], exI:i});
+      i++;
+    }
+  }
+  return groups;
+}
+
+function renderExerciseBody(entry, exI){
+  const ex = findEx(entry.exId);
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:15px;">${ex.nome}</div>
+      <button style="background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;" data-libdetail="${ex.id}">${ICO.play} Vídeo</button>
+    </div>
+    ${entry.alvo.obs ? `<div style="font-size:12px;opacity:.75;margin-bottom:8px;">${entry.alvo.obs}</div>` : ""}
+    ${entry.series.map((s,setI)=>`
+      <div class="setrow ${s.done?'done':''}">
+        <button class="checkbox ${s.done?'done':''}" data-toggleset="${exI}-${setI}">${s.done?ICO.check:''}</button>
+        <span style="font-size:12px;opacity:.7;width:46px;">Série ${setI+1}</span>
+        <input class="small-in mono" data-setfield="carga" data-set="${exI}-${setI}" type="number" value="${s.carga}"/>
+        <span style="font-size:11px;opacity:.7;">kg ×</span>
+        <input class="small-in mono" style="width:40px;" data-setfield="reps" data-set="${exI}-${setI}" value="${s.reps}"/>
+        <span style="font-size:11px;opacity:.7;">reps</span>
+      </div>`).join("")}
+  `;
+}
+
+function renderSession(){
+  const w = state.session;
+  const totalSets = w.log.reduce((s,e)=>s+e.series.length,0);
+  const doneSets = w.log.reduce((s,e)=>s+e.series.filter(x=>x.done).length,0);
+  const groups = groupLogEntries(w.log);
+  return `
+    <div class="session-sticky">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div class="display" style="font-size:24px;font-weight:700;color:var(--text);">${w.nome}${w.paused?' <span style="font-size:13px;font-weight:600;opacity:.65;">(pausado)</span>':''}</div>
+          <div class="mono" id="session-timer" style="font-size:20px;font-weight:600;color:var(--accent);">00:00</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="pause-btn" style="background:var(--bgElevated);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 14px;font-weight:700;font-size:13px;">${w.paused?'▶ Retomar':'⏸ Pausar'}</button>
+          <button style="background:none;border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:9px 14px;font-weight:700;font-size:13px;" data-giveup="1">Desistir</button>
+          <button class="btn-primary" data-finish="1">Concluir treino</button>
+        </div>
+      </div>
+      <div style="color:var(--textDim);font-size:13px;margin:10px 0 6px;">${doneSets}/${totalSets} séries concluídas</div>
+      <div style="height:6px;background:var(--bgElevated);border-radius:3px;">
+        <div style="height:6px;width:${(doneSets/totalSets)*100}%;background:${doneSets===totalSets?'#1E9E5A':'var(--card)'};border-radius:3px;transition:background .3s;"></div>
+      </div>
+      <div id="rest-banner" style="margin-top:10px;"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
+      ${groups.map(g=>{
+        if(g.type==="single"){
+          return `<div class="card">${renderExerciseBody(g.entry, g.exI)}</div>`;
+        }
+        return `<div class="card">
+          <div class="combo-header">
+            <span class="stack-ico">🔗</span>
+            <div>
+              <div style="font-weight:700;font-size:14px;">Exercícios combinados</div>
+              <div style="font-size:11px;opacity:.75;">Alterne esses exercícios</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${g.items.map(it=>`<div class="combo-sub">${renderExerciseBody(it.entry, it.exI)}</div>`).join("")}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderConfirmModal(){
+  const isFinish = state.confirmAction === "finish";
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:360px;">
+      <div class="display" style="font-size:20px;font-weight:700;margin-bottom:10px;">Tem certeza?</div>
+      <div style="font-size:14px;color:var(--textDim);margin-bottom:22px;line-height:1.5;">
+        ${isFinish
+          ? "Tem certeza que deseja concluir este treino?"
+          : "Tem certeza que deseja desistir deste treino? Ele não será salvo nem contabilizado no seu histórico."}
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button style="flex:1;background:var(--bgElevated);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px;font-weight:600;font-size:13px;" data-cancelconfirm="1">Cancelar</button>
+        <button style="flex:1;background:${isFinish?'var(--accent)':'var(--danger)'};color:${isFinish?'#161208':'#fff'};border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;" data-confirmaction="1">${isFinish?'Concluir':'Desistir'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFinishModal(){
+  const w = state.session;
+  const totalSets = w.log.reduce((s,e)=>s+e.series.length,0);
+  const doneSets = w.log.reduce((s,e)=>s+e.series.filter(x=>x.done).length,0);
+  const secs = Math.floor((Date.now()-w.startTime)/1000);
+  const m = String(Math.floor(secs/60)).padStart(2,"0");
+  const s2 = String(secs%60).padStart(2,"0");
+  return `
+  <div class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="display" style="font-size:22px;font-weight:700;margin-bottom:4px;">Treino concluído 🎉</div>
+      <div style="color:var(--textDim);font-size:13px;margin-bottom:16px;">Duração: <b class="mono">${m}:${s2}</b></div>
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;opacity:.9;">RESUMO</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><span>Exercícios</span><span class="mono">${w.log.length}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Séries concluídas</span><span class="mono">${doneSets}/${totalSets}</span></div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div class="field-lbl">${ICO.fireCal} Calorias perdidas (opcional)</div>
+        <input class="field-in" id="finish-calorias" type="number" placeholder="Ex: 320"/>
+      </div>
+      <button class="btn-primary" style="width:100%;" data-confirmfinish="1">Salvar e voltar ao início</button>
+    </div>
+  </div>`;
+}
+
+/* ---------------- EVENTS ---------------- */
+function attachEvents(){
+  document.querySelectorAll("[data-nav]").forEach(el=>el.onclick=()=>setState({tab:el.dataset.nav, viewingSession:false}));
+  const resumeBtn = document.getElementById("resume-session-btn");
+  if(resumeBtn) resumeBtn.onclick=()=>setState({viewingSession:true});
+  const sidebarHandle = document.getElementById("sidebar-handle");
+  if(sidebarHandle) sidebarHandle.onclick=()=>setState({sidebarCollapsed:!state.sidebarCollapsed});
+  document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>{
+    const w = workouts.find(x=>x.id===el.dataset.start);
+    const log = w.itens.map(it=>({exId:it.exId, alvo:it, series:Array.from({length:it.series},()=>({carga:it.carga, reps:it.reps.split("-")[0], done:false}))}));
+    setState({session:{...w, log, startTime:Date.now()}, viewingSession:true});
+  });
+  document.querySelectorAll("[data-toggleset]").forEach(el=>el.onclick=()=>{
+    const [exI,setI] = el.dataset.toggleset.split("-").map(Number);
+    const entry = state.session.log[exI];
+    const nowDone = !entry.series[setI].done;
+    entry.series[setI].done = nowDone;
+    if(nowDone){
+      const ex = findEx(entry.exId);
+      startRest(exI, setI, entry.alvo.descanso, ex.nome);
+    } else if(state.resting && state.resting.exI===exI && state.resting.setI===setI){
+      clearRestTimer(); state.resting = null;
+    }
+    render();
+  });
+  document.querySelectorAll("[data-setfield]").forEach(el=>el.onchange=()=>{
+    const [exI,setI] = el.dataset.set.split("-").map(Number);
+    state.session.log[exI].series[setI][el.dataset.setfield] = el.value;
+  });
+  const finishBtn = document.querySelector("[data-finish]");
+  if(finishBtn) finishBtn.onclick=()=>setState({confirmAction:"finish"});
+  const giveupBtn = document.querySelector("[data-giveup]");
+  if(giveupBtn) giveupBtn.onclick=()=>setState({confirmAction:"giveup"});
+  const pauseBtn = document.getElementById("pause-btn");
+  if(pauseBtn) pauseBtn.onclick=()=>{
+    if(!state.session.paused){
+      state.session.paused = true;
+      state.session.pausedAt = Date.now();
+      if(timerHandle){ clearInterval(timerHandle); timerHandle=null; }
+      if(restHandle){ clearInterval(restHandle); restHandle=null; }
+    } else {
+      const pausedDuration = Date.now() - state.session.pausedAt;
+      state.session.startTime += pausedDuration;
+      state.session.paused = false;
+      state.session.pausedAt = null;
+      timerHandle = setInterval(updateTimer, 1000);
+      updateTimer();
+      if(state.resting && !state.resting.finished){ restHandle = setInterval(restTick, 1000); }
+    }
+    render();
+  };
+  const cancelConfirmBtn = document.querySelector("[data-cancelconfirm]");
+  if(cancelConfirmBtn) cancelConfirmBtn.onclick=()=>setState({confirmAction:null});
+  const confirmActionBtn = document.querySelector("[data-confirmaction]");
+  if(confirmActionBtn) confirmActionBtn.onclick=()=>{
+    if(state.confirmAction==="finish"){
+      setState({confirmAction:null, finishModalOpen:true});
+    } else {
+      if(timerHandle){ clearInterval(timerHandle); timerHandle=null; }
+      clearRestTimer();
+      setState({session:null, confirmAction:null, resting:null, viewingSession:false, tab:"dashboard"});
+    }
+  };
+  const confirmFinishBtn = document.querySelector("[data-confirmfinish]");
+  if(confirmFinishBtn) confirmFinishBtn.onclick=()=>{
+    const cal = document.getElementById("finish-calorias").value;
+    setState({session:null, finishModalOpen:false, viewingSession:false, tab:"dashboard"});
+    if(cal){ setTimeout(()=>alert(`Treino salvo! Calorias registradas: ${cal} kcal.`),50); }
+  };
+
+  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>setState({builderOpen:true, builderData:JSON.parse(JSON.stringify(workouts.find(w=>w.id===el.dataset.edit)))}));
+  document.querySelectorAll("[data-dup]").forEach(el=>el.onclick=()=>{
+    const w = workouts.find(x=>x.id===el.dataset.dup);
+    workouts.push({...JSON.parse(JSON.stringify(w)), id:"w"+Date.now(), nome:w.nome+" (cópia)"});
+    render();
+  });
+  document.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>{
+    workouts = workouts.filter(w=>w.id!==el.dataset.del);
+    if(state.treinosTab===el.dataset.del) state.treinosTab = workouts[0] ? workouts[0].id : null;
+    render();
+  });
+  const newWBtn = document.querySelector("[data-newworkout]");
+  if(newWBtn) newWBtn.onclick=()=>setState({builderOpen:true, builderData:{id:null,nome:"",grupo:"",itens:[]}});
+
+  document.querySelectorAll("[data-treinostab]").forEach(el=>el.onclick=()=>setState({treinosTab:el.dataset.treinostab}));
+  document.querySelectorAll("[data-addcarga]").forEach(el=>el.onclick=()=>setState({addCargaExId:el.dataset.addcarga}));
+  document.querySelectorAll("[data-closeaddcarga]").forEach(el=>el.onclick=()=>setState({addCargaExId:null}));
+  const saveAddCargaBtn = document.querySelector("[data-saveaddcarga]");
+  if(saveAddCargaBtn) saveAddCargaBtn.onclick=()=>{
+    const carga = document.getElementById("ac-carga").value;
+    const reps = document.getElementById("ac-reps").value;
+    if(carga && reps){
+      const exId = state.addCargaExId;
+      if(!progressLog[exId]) progressLog[exId] = [];
+      const now = new Date();
+      const dataStr = String(now.getDate()).padStart(2,"0")+"/"+String(now.getMonth()+1).padStart(2,"0");
+      progressLog[exId].push({data:dataStr, carga:Number(carga), reps:Number(reps)});
+      setState({progressEx:exId, addCargaExId:null});
+    } else {
+      setState({addCargaExId:null});
+    }
+  };
+
+  document.querySelectorAll("[data-filter]").forEach(el=>el.onclick=()=>setState({libFilter:el.dataset.filter}));
+  document.querySelectorAll("[data-libdetail]").forEach(el=>el.onclick=()=>setState({libDetail:el.dataset.libdetail}));
+  document.querySelectorAll("[data-closelib]").forEach(el=>el.onclick=()=>setState({libDetail:null}));
+  const demoToggle = document.getElementById("demo-toggle");
+  if(demoToggle) demoToggle.onclick=()=>{
+    const anim = document.getElementById("demo-anim");
+    const playing = anim.classList.toggle("playing");
+    demoToggle.innerHTML = playing ? "⏸ Pausar" : `${ICO.play} Assistir`;
+  };
+  const exPhoto = document.getElementById("ex-photo");
+  if(exPhoto) exPhoto.onerror = function(){
+    const wrap = this.parentElement;
+    this.remove();
+    const msg = document.createElement("div");
+    msg.style.padding = "24px";
+    msg.style.textAlign = "center";
+    msg.style.fontSize = "12px";
+    msg.style.opacity = ".8";
+    msg.textContent = "Não foi possível carregar a foto — verifique sua conexão com a internet.";
+    wrap.prepend(msg);
+  };
+  document.querySelectorAll("[data-openexedit]").forEach(el=>el.onclick=()=>setState({exerciseEditOpen:el.dataset.openexedit}));
+  document.querySelectorAll("[data-closeexedit]").forEach(el=>el.onclick=()=>setState({exerciseEditOpen:null}));
+  const saveExEditBtn = document.querySelector("[data-saveexedit]");
+  if(saveExEditBtn) saveExEditBtn.onclick=()=>{
+    const ex = findEx(state.exerciseEditOpen);
+    if(ex){
+      ex.nome = document.getElementById("ee-nome").value || ex.nome;
+      ex.grupo = document.getElementById("ee-grupo").value || ex.grupo;
+      ex.equipamento = document.getElementById("ee-equipamento").value;
+      const img = document.getElementById("ee-imagem").value.trim();
+      const vid = document.getElementById("ee-video").value.trim();
+      if(img) ex.imagemUrl = img; else delete ex.imagemUrl;
+      if(vid) ex.videoUrl = vid; else delete ex.videoUrl;
+    }
+    setState({exerciseEditOpen:null});
+  };
+
+  document.querySelectorAll("[data-progex]").forEach(el=>el.onclick=()=>setState({progressEx:el.dataset.progex}));
+  const openAddWeightBtn = document.querySelector("[data-openaddweight]");
+  if(openAddWeightBtn) openAddWeightBtn.onclick=()=>setState({addWeightOpen:true});
+  const closeAddWeightBtn = document.querySelector("[data-closeaddweight]");
+  if(closeAddWeightBtn) closeAddWeightBtn.onclick=()=>setState({addWeightOpen:false});
+  const saveAddWeightBtn = document.querySelector("[data-saveaddweight]");
+  if(saveAddWeightBtn) saveAddWeightBtn.onclick=()=>{
+    const peso = document.getElementById("aw-peso").value;
+    if(peso){
+      const now = new Date();
+      const dataStr = String(now.getDate()).padStart(2,"0")+"/"+String(now.getMonth()+1).padStart(2,"0");
+      bodyWeightLog.push({data:dataStr, peso:Number(peso)});
+      profile.peso = Number(peso);
+    }
+    setState({addWeightOpen:false});
+  };
+
+  const saveProfileBtn = document.querySelector("[data-saveprofile]");
+  if(saveProfileBtn) saveProfileBtn.onclick=()=>{
+    profile.nome = document.getElementById("p-nome").value;
+    profile.idade = document.getElementById("p-idade").value;
+    profile.peso = document.getElementById("p-peso").value;
+    profile.altura = document.getElementById("p-altura").value;
+    profile.nivel = document.getElementById("p-nivel").value;
+    profile.objetivo = document.getElementById("p-objetivo").value;
+    render();
+  };
+
+  const closeBuilder = document.querySelector("[data-closebuilder]");
+  if(closeBuilder) closeBuilder.onclick=()=>setState({builderOpen:false, builderData:null});
+  const togglePicker = document.querySelector("[data-togglepicker]");
+  if(togglePicker) togglePicker.onclick=()=>{
+    const p = document.getElementById("b-picker");
+    p.style.display = p.style.display==="none" ? "block" : "none";
+  };
+  document.querySelectorAll("[data-addex]").forEach(el=>el.onclick=()=>{
+    state.builderData.itens.push({exId:el.dataset.addex, series:3, reps:"10-12", carga:20, descanso:60, obs:""});
+    render();
+    setTimeout(()=>{ const p=document.getElementById("b-picker"); if(p) p.style.display="block"; },0);
+  });
+  document.querySelectorAll("[data-removeitem]").forEach(el=>el.onclick=()=>{
+    const idx = Number(el.dataset.removeitem);
+    const removedCombo = state.builderData.itens[idx].combo;
+    state.builderData.itens.splice(idx,1);
+    if(removedCombo){
+      const remaining = state.builderData.itens.filter(it=>it.combo===removedCombo);
+      if(remaining.length < 2) remaining.forEach(it=>delete it.combo);
+    }
+    render();
+  });
+  document.querySelectorAll("[data-combo]").forEach(el=>el.onclick=()=>{
+    const idx = Number(el.dataset.combo);
+    const comboId = "combo-"+Date.now();
+    state.builderData.itens[idx].combo = comboId;
+    if(state.builderData.itens[idx+1]) state.builderData.itens[idx+1].combo = comboId;
+    render();
+  });
+  document.querySelectorAll("[data-uncombo]").forEach(el=>el.onclick=()=>{
+    const comboId = el.dataset.uncombo;
+    state.builderData.itens.forEach(it=>{ if(it.combo===comboId) delete it.combo; });
+    render();
+  });
+  document.querySelectorAll("[data-field]").forEach(el=>el.onchange=()=>{
+    const idx = Number(el.dataset.idx);
+    state.builderData.itens[idx][el.dataset.field] = el.type==="number" ? Number(el.value) : el.value;
+  });
+  const saveWorkoutBtn = document.querySelector("[data-saveworkout]");
+  if(saveWorkoutBtn) saveWorkoutBtn.onclick=()=>{
+    const nome = document.getElementById("b-nome").value || "Novo treino";
+    const grupo = document.getElementById("b-grupo").value || "Geral";
+    const w = { id: state.builderData.id || "w"+Date.now(), nome, grupo, itens: state.builderData.itens };
+    const idx = workouts.findIndex(x=>x.id===w.id);
+    if(idx>=0) workouts[idx]=w; else workouts.push(w);
+    setState({builderOpen:false, builderData:null});
+  };
+}
+
+render();
+</script>
+</body>
+</html>
